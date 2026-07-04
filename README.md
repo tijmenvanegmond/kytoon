@@ -1,0 +1,37 @@
+# kytoon-sim
+
+L0 analytic design layer for the kiteship kytoon iterations (Mk I–IV).
+YAML spec → pydantic model → closed-form solvers → markdown comparison report.
+
+```
+uv venv && uv pip install -e ".[dev]"     # or: pip install -e ".[dev]"
+pytest                                     # validation gates
+python -m kytoon.report specs/ -o reports/l0.md
+```
+
+## Layout
+- `specs/*.yaml` — one KytoonSpec per Mk (geometry, pressures, tether, bridle, masses)
+- `kytoon/spec.py` — pydantic schema; volumes/masses as derived properties
+- `kytoon/solvers/l0.py` — buoyancy (Archimedes), tube stress (hoop N=p·r,
+  wrinkle onset M_w=p·π·r³/2 per Comer & Levy), wind envelope (v_min from
+  static-lift deficit; v_max = min(tether WLL, wrinkle margin via bisection,
+  canopy fabric limit))
+- `kytoon/report.py` — comparison table + per-member margins + flags
+- `tests/` — physics anchors (He 1.05 kg/m³, torus volume closed form,
+  wrinkle-moment reference case) + design gates (fleet covers 0→20+ m/s)
+
+## Model honesty notes
+- LE tube / struts see 35% of aero load as bending (tensioned membrane
+  carries the rest to the bridles). This factor is the biggest L0 uncertainty
+  → validate at L1 with mem4py.
+- Tether is straight-line: drag/sag deferred to MoorPy (L1).
+- No gust cases, no FSI: L2 (OpenFOAM + preCICE) for the final candidate only.
+
+## Fidelity ladder (next tiers)
+- L1: AeroSandbox VLM (aero), mem4py (membrane FEM), MoorPy (tether),
+  trimesh/gmsh for geometry + STL export. `pip install -e ".[l1]"`
+- L2: OpenFOAM ↔ CalculiX/FEniCSx via preCICE; gust + capture-state loads.
+- Reference data: TU Delft V3 benchmark is VENDORED in `data/tudelft_v3/`
+  (CC-BY, awegroup) and wired into `kytoon/aero.py`. Wind-tunnel + CFD polars
+  calibrate the clean-wing coefficients; see reports/l0.md provenance section
+  and data/tudelft_v3/SOURCE.md for citations.

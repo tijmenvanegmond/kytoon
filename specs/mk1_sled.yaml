@@ -1,0 +1,37 @@
+name: "Mk I «Sled»"
+mk: "I"
+archetype: lei
+notes: >
+  Baseline LEI traction kytoon. He in LE tube + struts nets out structure
+  mass only; role is launch boost + traction.
+canopy:
+  area: 400.0          # m² projected
+  span: 38.0           # m projected  (AR ≈ 3.6, SkySails-class)
+  areal_density: 0.15  # kg/m² single-skin ripstop laminate
+  cl_op: 0.8
+  cl_max: 1.07   # TU Delft V3 wind-tunnel CL_max (Poland 2025)
+  cd_op: 0.15
+  twin_skin: false
+le_tube:
+  diameter: 0.90
+  length: 44.0         # developed along the arc
+  pressure_bar: 0.25
+  gas: helium
+struts:
+  diameter: 0.50
+  length: 6.0
+  pressure_bar: 0.50   # struts run higher pressure than LE (kitesurf practice)
+  gas: helium
+n_struts: 8
+tether:
+  length: 400
+  diameter_mm: 14
+  linear_density: 0.11
+  mbl_kn: 150
+  safety_factor: 3.0
+  elevation_deg: 40
+bridle:
+  positions: [0.06, 0.19, 0.32, 0.44, 0.56, 0.68, 0.81, 0.94]  # 8-point, SkySails-style dense bridle
+payload_mass: 25       # avionics + IMU/GNSS + He telemetry + fixture
+rigging_mass: 40
+dock_capacity: 0

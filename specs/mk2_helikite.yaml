@@ -1,0 +1,30 @@
+name: "Mk II «Helikite»"
+mk: "II"
+archetype: helikite
+notes: >
+  Buoyancy-dominant ISR loiterer. Oblate He lobe + delta keel wing.
+  Flies at zero wind; poor traction by design.
+canopy:                # delta keel wing under the lobe
+  area: 250.0
+  span: 24.0
+  areal_density: 0.15
+  cl_op: 0.6           # lobe-wake degraded
+  cl_max: 0.8
+  cd_op: 0.25          # bluff lobe dominates drag
+  twin_skin: false
+lobe:
+  diameter: 14.0
+  height: 7.0
+  fabric_areal_density: 0.20
+tether:
+  length: 400
+  diameter_mm: 12
+  linear_density: 0.09
+  mbl_kn: 110
+  safety_factor: 3.0
+  elevation_deg: 55    # steeper — buoyant systems ride higher
+bridle:
+  positions: [0.30, 0.70]
+payload_mass: 60       # gimbaled EO/IR pod + avionics
+rigging_mass: 35
+dock_capacity: 0

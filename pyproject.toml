@@ -1,0 +1,16 @@
+[project]
+name = "kytoon-sim"
+version = "0.1.0"
+description = "L0 analytic design layer for kiteship kytoon iterations (Mk I-IV)"
+requires-python = ">=3.11"
+dependencies = ["pydantic>=2", "pyyaml>=6", "numpy>=1.26"]
+
+[project.optional-dependencies]
+l1 = ["aerosandbox", "trimesh", "gmsh"]   # next fidelity tier
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.setuptools]
+packages = ["kytoon", "kytoon.solvers"]

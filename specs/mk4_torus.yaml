@@ -1,0 +1,23 @@
+name: "Mk IV «Torus»"
+mk: "IV"
+archetype: torus
+notes: >
+  Annular calm-air recovery node. Capture line through central duct.
+  No wing: buoyancy only, drag-limited ceiling.
+torus:
+  ring_diameter: 13.5   # centerline: duct 9 m + tube radius 2.25 m each side
+  tube_diameter: 4.5
+  pressure_bar: 0.02
+  fabric_areal_density: 0.25
+tether:
+  length: 400
+  diameter_mm: 12
+  linear_density: 0.09
+  mbl_kn: 110
+  safety_factor: 3.0
+  elevation_deg: 75
+bridle:
+  positions: [0.25, 0.5, 0.75]      # 3-point quadrant bridle
+payload_mass: 45        # duct guide hardware + avionics + line winch
+rigging_mass: 50
+dock_capacity: 0

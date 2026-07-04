@@ -1,0 +1,32 @@
+name: "Mk III «Spine»"
+mk: "III"
+archetype: spine
+notes: >
+  Semi-rigid target design. Inflatable keel spar carries grapple rail,
+  drone dock, conductive power. He in spar + minimal; needs wind.
+canopy:
+  area: 350.0
+  span: 34.0
+  areal_density: 0.15
+  cl_op: 0.9           # twin-skin profile, cleaner section
+  cl_max: 1.35   # V3 CFD Re1e6 CL_max (Vire 2022), twin-skin upper bound
+  cd_op: 0.12
+  twin_skin: true
+spar:
+  diameter: 0.80
+  length: 10.0         # chordwise keel spar
+  pressure_bar: 0.60
+  fabric_strength_n_per_m: 120000   # reinforced laminate w/ load tapes
+  gas: helium
+tether:
+  length: 400
+  diameter_mm: 16
+  linear_density: 0.14
+  mbl_kn: 200
+  safety_factor: 3.0
+  elevation_deg: 40
+bridle:
+  positions: [0.10, 0.30, 0.50, 0.70, 0.90]  # 5-point rail (fixtures double as bridle nodes)
+payload_mass: 90       # dock cradle + rail + avionics + power electronics
+rigging_mass: 55
+dock_capacity: 300     # perched drone rating [kg]
