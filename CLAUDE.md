@@ -76,6 +76,12 @@ Three-stage pipeline, one file per stage:
   point, spec-consistency ratio, flags). Guarded import: works only with the
   `l1` extra installed; everything else must keep running without it.
   CLI: `python -m kytoon.solvers.l1_aero specs/mk1_sled.yaml`.
+- `kytoon/solvers/l1_tether.py` — L1 tier (optional): tether as an inverted
+  mooring line in air via MoorPy (`System(rho=1.225)`, wind as current).
+  Returns `L1TetherReport` (drag/sag line shape, true elevation angles,
+  tensions, flags); `v_max_tether()` bisects the drag-corrected WLL ceiling.
+  Same guarded-import rule as l1_aero.
+  CLI: `python -m kytoon.solvers.l1_tether specs/mk1_sled.yaml -v 12 --vmax`.
 - `kytoon/report.py` — turns a list of `L0Report` into the comparison table +
   per-member structure margins + flags seen in `reports/l0.md`.
 - `kytoon/aero.py` — independent calibration path, not called by the solvers
@@ -111,8 +117,9 @@ that's a design conversation, not a reason to loosen the test.
 
 L0 is the default; L1 aero exists behind the `l1` extra
 (`pip install -e ".[l1]"` — installs awegroup VSM from git, not PyPI).
-`tests/test_l1_aero.py`'s VSM-dependent tests skip automatically when the
-extra is absent. Still pending at L1: mem4py (membrane FEM, to calibrate
-`TUBE_LOAD_SHARE`) and MoorPy (tether sag/drag). L2 = OpenFOAM ↔
+L1 tether (MoorPy) is also behind the extra. `tests/test_l1_*.py`'s
+dependent tests skip automatically when the extra is absent. Still pending
+at L1: mem4py (membrane FEM, to calibrate `TUBE_LOAD_SHARE`) — blocked, see
+KYTOON-PROJECT.md §7.2. L2 = OpenFOAM ↔
 CalculiX/FEniCSx via preCICE for gust/FSI, final candidate only. Don't add
 L1/L2 dependencies to the default install.

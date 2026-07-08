@@ -55,6 +55,8 @@ kytoon/solvers/l0.py    closed-form physics. SI units everywhere unless the
 kytoon/solvers/l1_aero.py  L1 aero: parametric C-arc LEI wing from the spec's
                         bulk numbers → VSM (awegroup) polar. Needs the `l1`
                         extra; everything else runs without it.
+kytoon/solvers/l1_tether.py  L1 tether: MoorPy quasi-static line in air
+                        (drag + sag + true elevation). Also `l1` extra.
 kytoon/aero.py          TU Delft V3 benchmark loader + system-polar model.
 kytoon/report.py        CLI: python -m kytoon.report specs/ -o reports/l0.md
 data/tudelft_v3/        vendored CC-BY benchmark (see SOURCE.md for citations).
@@ -62,6 +64,7 @@ data/tudelft_v3/        vendored CC-BY benchmark (see SOURCE.md for citations).
 tests/test_l0.py        14 tests = the L0 validation contract (see §4).
 tests/test_l1_aero.py   11 tests = the L1 aero contract; VSM-dependent ones
                         skip unless the `l1` extra is installed.
+tests/test_l1_tether.py 8 tests = the L1 tether contract (skip w/o moorpy).
 ```
 
 Python ≥3.11, deps: pydantic v2, pyyaml, numpy (numpy currently unused by L0
@@ -97,8 +100,10 @@ consciously replace them (and update this file + tests):
    margin found by bisection on tow force, canopy fabric limit). Quasi-static
    only — **no gust cases, no crosswind maneuvers, no dynamic loads.**
 5. **Tether**: straight line; mass counted, drag and sag NOT integrated
-   (deferred to MoorPy at L1). Torus v_max uses bluff-body drag
-   (Cd 0.5 × ring frontal area) against tether WLL.
+   at L0. Torus v_max uses bluff-body drag (Cd 0.5 × ring frontal area)
+   against tether WLL. The L1 correction exists (`l1_tether.py`, MoorPy);
+   L0 keeps the straight-line story and the spec keeps `elevation_deg` as
+   an input — see §6 for why that input is suspect.
 6. **Torus structure**: hoop check only. Ring bending under the 3-point
    bridle is an L1 problem — flagged, not solved.
 7. **Mk II lobe**: 500 Pa assumed gust superpressure for the hoop check;
@@ -116,8 +121,8 @@ consciously replace them (and update this file + tests):
 
 ## 4. The test suite is a contract
 
-`tests/test_l0.py` (14) + `tests/test_l1_aero.py` (11) — all passing at
-last compile. Categories:
+`tests/test_l0.py` (14) + `tests/test_l1_aero.py` (11) +
+`tests/test_l1_tether.py` (8) — all passing at last compile. Categories:
 
 - **Physics anchors** (must never change without a source): He net-lift
   constant; torus volume closed form; wrinkle-moment reference case
@@ -179,6 +184,16 @@ legitimately lower per m² and not comparable to AWE traction figures.
 - **Drawing-level finding**: the arm's 15 m reach envelope overlaps the
   tether traveller zone — arm motion planning must treat the tether as a
   dynamic keep-out volume. Unresolved, lives with the ship design.
+- **Tether elevation is an output, and the spec inputs are wrong
+  (2026-07-08)**: quasi-static force balance puts Mk I's tether at ≈78°
+  elevation at the operating point (atan of system L/D ≈ 5.3, sag ≈ 1 m at
+  27 kN), not the spec's 40°; Mk IV rides at ≈57° at 12 m/s, not 75°.
+  L0's `eta_v = sin(elevation_deg)` therefore *underestimates* Mk I/III
+  vertical lift (v_min would drop ≈3.8 → ≈3.1 m/s with eta_v from force
+  balance) and *overestimates* Mk IV's. OPEN DESIGN CONVERSATION: either
+  make elevation an L0 output (change §3.4's model + specs + gates) or
+  re-justify `elevation_deg` as an operational constraint (winch/traveller
+  geometry), not a physics input. Until decided, L0 numbers stand.
 - **L1 confirms the hand-picked aero (2026-07-08)**: solving Mk I's and
   Mk III's *own* parametric geometry with VSM reproduces the spec operating
   points — resultant-force ratio L1/spec 0.99 (Mk I, cl_op 0.8 at α≈8.9°)
@@ -200,8 +215,20 @@ legitimately lower per m² and not comparable to AWE traction figures.
 2. **L1 structure**: mem4py membrane FEM to calibrate/replace
    TUBE_LOAD_SHARE (§3.3). Success criterion: a computed load-share value
    with a validation case, replacing the 0.35 constant.
-3. **L1 tether**: MoorPy quasi-static line (a kite tether is an inverted
-   mooring line) — adds drag/sag, corrects v_max and tether-angle numbers.
+   **BLOCKED 2026-07-08 on this dev machine**: mem4py is Cython+Eigen,
+   git-only and dormant (23 commits, no releases); no MSVC C++ toolchain
+   installed here, and it needs gmsh surface meshes that don't exist until
+   task 6. Unblock paths: (a) install VS Build Tools or use WSL for a
+   Linux-side build, (b) do task 6 first so there's a mesh to feed it.
+3. ~~**L1 tether**~~ — v1 DONE 2026-07-08: `kytoon/solvers/l1_tether.py`
+   runs the tether as an inverted mooring line in air (MoorPy, System
+   rho=1.225, wind as current). Adds line drag + sag, computes true
+   elevation/tension/altitude, and `v_max_tether()` bisects the
+   drag-corrected WLL ceiling. Gated by 8 tests. Key outputs: Mk I tether
+   ceiling 16.1 m/s (L0 straight-line: 15.8 — buoyancy deficit unloads the
+   line slightly), Mk IV 44.1 vs 44.4. Remaining for v2: feed corrected
+   elevation back into the L0 envelope (blocked on the §6 elevation
+   design conversation).
 4. ~~**Sync the drawings**~~ — DONE 2026-07-08 (`docs/kytoon-iterations.svg`
    REV B): spec table, He volumes, static lifts, wind envelopes, tow forces,
    Mk I strut count/span/AR, Mk III spar callout (Ø0.8 m @ 0.6 bar) and

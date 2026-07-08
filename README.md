@@ -34,8 +34,12 @@ python -m kytoon.report specs/ -o reports/l0.md
   CL_max +10%, (L/D)max −19% (conservative), gated in `tests/test_l1_aero.py`
   (skipped unless the `l1` extra is installed: `pip install -e ".[l1]"`).
   Run one spec: `python -m kytoon.solvers.l1_aero specs/mk1_sled.yaml`.
-- L1 structure/tether — pending: mem4py (membrane FEM, calibrates
-  TUBE_LOAD_SHARE), MoorPy (tether sag/drag).
+- L1 tether — **built**: `kytoon/solvers/l1_tether.py` runs the tether as an
+  inverted mooring line in air (MoorPy): line drag + sag, true elevation
+  angles, drag-corrected tether v_max. `tests/test_l1_tether.py`.
+- L1 structure — pending/blocked: mem4py (membrane FEM, calibrates
+  TUBE_LOAD_SHARE) needs a C++ toolchain and gmsh meshes; see
+  KYTOON-PROJECT.md §7.2.
 - L2: OpenFOAM ↔ CalculiX/FEniCSx via preCICE; gust + capture-state loads.
 - Reference data: TU Delft V3 benchmark is VENDORED in `data/tudelft_v3/`
   (CC-BY, awegroup) and wired into `kytoon/aero.py`. Wind-tunnel + CFD polars
