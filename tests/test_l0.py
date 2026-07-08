@@ -82,6 +82,15 @@ def test_mk1_tow_force_magnitude(specs):
     assert 20 < env.tow_force_at_12ms_kn < 60
 
 
+def test_mk5_single_kytoon_coverage(specs):
+    """Mk V's competing claim: one winged blimp covers the whole 0–20+ m/s
+    requirement alone (challenges the two-kytoon carriage logic)."""
+    env = solve_wind_envelope(specs["V"])
+    assert env.v_min_ms == 0.0
+    assert env.v_max_ms > 20.0
+    assert solve_buoyancy(specs["V"]).calm_air_capable
+
+
 def test_fleet_covers_zero_to_20ms(specs):
     envs = [solve_wind_envelope(s) for s in specs.values()]
     assert min(e.v_min_ms for e in envs) == 0.0

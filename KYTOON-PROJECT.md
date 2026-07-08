@@ -61,12 +61,16 @@ kytoon/aero.py          TU Delft V3 benchmark loader + system-polar model.
 kytoon/report.py        CLI: python -m kytoon.report specs/ -o reports/l0.md
 kytoon/viz.py           CLI: python -m kytoon.viz specs/ -o reports/figures
                         (L0 figures always; polar/tether figures need `l1`)
+kytoon/geometry.py      3D kernel: spec → trimesh scene → models/*.glb|stl.
+                        Owns ArcWing (shared with l1_aero). Needs `l1`.
 data/tudelft_v3/        vendored CC-BY benchmark (see SOURCE.md for citations).
                         Treat as read-only; re-download from awegroup if stale.
 tests/test_l0.py        14 tests = the L0 validation contract (see §4).
 tests/test_l1_aero.py   11 tests = the L1 aero contract; VSM-dependent ones
                         skip unless the `l1` extra is installed.
 tests/test_l1_tether.py 8 tests = the L1 tether contract (skip w/o moorpy).
+tests/test_geometry.py  8 tests = mesh volumes must match spec-derived
+                        properties; arc shape must honor le_tube.length.
 ```
 
 Python ≥3.11, deps: pydantic v2, pyyaml, numpy (numpy currently unused by L0
@@ -124,8 +128,8 @@ consciously replace them (and update this file + tests):
 ## 4. The test suite is a contract
 
 `tests/test_l0.py` (14) + `tests/test_l1_aero.py` (11) +
-`tests/test_l1_tether.py` (8) + `tests/test_viz.py` (5) — all passing at
-last compile. Categories:
+`tests/test_l1_tether.py` (8) + `tests/test_viz.py` (5) +
+`tests/test_geometry.py` (8) — all passing at last compile. Categories:
 
 - **Physics anchors** (must never change without a source): He net-lift
   constant; torus volume closed form; wrinkle-moment reference case
@@ -187,6 +191,12 @@ legitimately lower per m² and not comparable to AWE traction figures.
 - **Drawing-level finding**: the arm's 15 m reach envelope overlaps the
   tether traveller zone — arm motion planning must treat the tether as a
   dynamic keep-out volume. Unresolved, lives with the ship design.
+- **Mk I's spec implies a flatter arc than the V3 (2026-07-08)**: the
+  44 m developed LE-tube length on a 38 m span pins the C-arc at
+  height/span ≈ 0.25 vs the V3's 0.376. `ArcWing.from_spec` now derives
+  the arc from the tube length when present; Mk I's L1 operating point
+  barely moved (cr_ratio 0.99 → 1.00, op α 8.9° → 9.3°) — the spec
+  coefficients still hold on the self-consistent shape.
 - **Tether elevation is an output, and the spec inputs are wrong
   (2026-07-08)**: quasi-static force balance puts Mk I's tether at ≈78°
   elevation at the operating point (atan of system L/D ≈ 5.3, sag ≈ 1 m at
@@ -220,9 +230,10 @@ legitimately lower per m² and not comparable to AWE traction figures.
    with a validation case, replacing the 0.35 constant.
    **BLOCKED 2026-07-08 on this dev machine**: mem4py is Cython+Eigen,
    git-only and dormant (23 commits, no releases); no MSVC C++ toolchain
-   installed here, and it needs gmsh surface meshes that don't exist until
-   task 6. Unblock paths: (a) install VS Build Tools or use WSL for a
-   Linux-side build, (b) do task 6 first so there's a mesh to feed it.
+   installed here, and it needs gmsh surface meshes. Task 6's kernel now
+   emits watertight STL (a start), but mem4py wants gmsh .msh with physical
+   groups — still to do. Unblock paths: (a) install VS Build Tools or use
+   WSL for a Linux-side build, (b) extend the geometry kernel to gmsh.
 3. ~~**L1 tether**~~ — v1 DONE 2026-07-08: `kytoon/solvers/l1_tether.py`
    runs the tether as an inverted mooring line in air (MoorPy, System
    rho=1.225, wind as current). Adds line drag + sag, computes true
@@ -239,8 +250,13 @@ legitimately lower per m² and not comparable to AWE traction figures.
    numbers move — the sheet now cites REV B provenance in its footer.
 5. **Mk II aero**: no benchmark exists for lobe+wing; either find aerostat
    hybrid data or schedule an L1 VLM study with the lobe modeled as a body.
-6. **Geometry kernel** (enables L1/L2): parametric mesh generation per Mk
-   (trimesh/gmsh, STL export). The YAML specs are already the parameter set.
+6. ~~**Geometry kernel**~~ — v1 DONE 2026-07-08: `kytoon/geometry.py`
+   realizes each spec as a trimesh scene (closed meshes for pressurized
+   volumes, open surfaces for soft goods) → `models/*.glb|stl`. Mesh
+   volumes are gated against the spec-derived properties; the arc shape is
+   pinned by the spec's own LE-tube length (see §6 finding). Remaining for
+   v2: gmsh FEM-grade meshing (what mem4py actually needs), bridle-line
+   geometry, billow/twist once membrane results exist.
 7. **L2 (later)**: OpenFOAM ↔ CalculiX/FEniCSx via preCICE for gust and
    capture-state (arm-attached) load cases, final candidate only.
 

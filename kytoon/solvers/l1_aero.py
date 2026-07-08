@@ -6,9 +6,9 @@ the awegroup Vortex Step Method (VSM) — the open solver TU Delft validates
 against the very dataset vendored in data/tudelft_v3/.
 
 Geometry model (deliberately minimal — the YAML spec is the parameter set):
-  C-shaped circular arc in the front view, matched to the spec's projected
-  span and area. Arc depth and chord taper default to the V3's measured
-  shape (height/span 0.376, tip/center chord 0.55). Sections are flat
+  the shared `kytoon.geometry.ArcWing` C-arc: projected span/area from the
+  spec, arc depth pinned by the LE tube's developed length when the spec
+  has one (else the V3's measured shape), V3 chord taper. Sections are flat
   (no twist/billow — that is membrane FEM territory, L1 structure task).
 
 Section aerodynamics: Breukels' 2-parameter LEI airfoil regression
@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from kytoon.aero import Polar, PolarPoint, SystemPolar, bridle_cd
+from kytoon.geometry import TWIN_SKIN_TUBE_T, ArcWing  # noqa: F401 (re-export)
 from kytoon.spec import Archetype, KytoonSpec
 
 try:
@@ -44,64 +45,9 @@ try:
 except ImportError:  # default install is L0-only by design
     HAS_VSM = False
 
-# V3-derived shape defaults (data/tudelft_v3/properties.yaml):
-# projected height 3.13 m / projected span 8.32 m; chord fullness 0.85
-# (flat area / (flat span · max chord)) → parabolic taper ratio 0.55.
-ARC_HEIGHT_RATIO = 0.376
-CHORD_TAPER = 0.55
-KAPPA_CAMBER = 0.08          # typical LEI camber for Breukels regression
-TWIN_SKIN_TUBE_T = 0.06      # slim effective LE for twin-skin sections (approx.)
+# ArcWing (shared with the geometry kernel) is imported above; this module
+# only adds the aerodynamics on top of it.
 SECTION_ALPHA_RANGE = [-15.0, 30.0, 0.5]   # deg, Breukels polar span
-
-
-@dataclass
-class ArcWing:
-    """Parametric C-arc LEI wing, fully determined by spec bulk numbers."""
-    span: float            # m, projected (tip-to-tip width)
-    area: float            # m², projected
-    height_ratio: float = ARC_HEIGHT_RATIO
-    taper: float = CHORD_TAPER
-    tube_t: float = 0.10   # LE tube diameter / chord for Breukels section
-    kappa: float = KAPPA_CAMBER
-    n_sections: int = 20
-
-    @classmethod
-    def from_spec(cls, spec: KytoonSpec) -> "ArcWing":
-        if spec.canopy is None:
-            raise ValueError(f"{spec.name}: no canopy — no wing to solve at L1")
-        mean_chord = spec.canopy.area / spec.canopy.span
-        if spec.le_tube is not None:
-            tube_t = spec.le_tube.diameter / mean_chord
-        else:
-            tube_t = TWIN_SKIN_TUBE_T
-        return cls(span=spec.canopy.span, area=spec.canopy.area, tube_t=tube_t)
-
-    # --- closed-form arc geometry (hand-checkable, in the L0 spirit) -------
-    @property
-    def arc_half_angle(self) -> float:
-        # height/span = tan(θ0/2)/2 for a circular arc
-        return 2 * math.atan(2 * self.height_ratio)
-
-    @property
-    def arc_radius(self) -> float:
-        return self.span / (2 * math.sin(self.arc_half_angle))
-
-    def _chord_shape(self, phi: float) -> float:
-        return 1 - (1 - self.taper) * (phi / self.arc_half_angle) ** 2
-
-    def section_points(self) -> list[tuple[np.ndarray, np.ndarray]]:
-        """(LE, TE) per section: x downstream, y spanwise, z up."""
-        th0, r = self.arc_half_angle, self.arc_radius
-        phis = np.linspace(-th0, th0, self.n_sections)
-        # projected area = ∫ c dy; y = R·sinφ carries the cosφ Jacobian
-        c0 = self.area / np.trapezoid([self._chord_shape(p) for p in phis],
-                                      r * np.sin(phis))
-        out = []
-        for phi in phis:
-            le = np.array([0.0, r * math.sin(phi), r * math.cos(phi)])
-            te = le + np.array([c0 * self._chord_shape(phi), 0.0, 0.0])
-            out.append((le, te))
-        return out
 
 
 def build_body(geom: ArcWing, n_panels: int = 40) -> "BodyAerodynamics":
@@ -168,6 +114,12 @@ def solve(spec: KytoonSpec, n_panels: int = 40,
     flags: list[str] = []
     if spec.archetype == Archetype.TORUS:
         raise ValueError(f"{spec.name}: pure aerostat, no wing — L1 aero n/a")
+    if spec.archetype == Archetype.BLIMP:
+        raise ValueError(
+            f"{spec.name}: side delta wings are not a C-arc — needs a "
+            "hull+wing panel model (task queue: Mk II/V body-interference "
+            "aero study)"
+        )
     if spec.archetype == Archetype.HELIKITE:
         flags.append(
             "lobe interference NOT modeled — wing-only polar; do not feed "

@@ -35,7 +35,8 @@ MUTED = "#898781"
 GRID = "#e1e0d9"
 AXIS = "#c3c2b7"
 CRITICAL = "#d03b3b"          # status: gate exceeded — never used as a series
-MK_COLOR = {"I": "#2a78d6", "II": "#1baf7a", "III": "#eda100", "IV": "#008300"}
+MK_COLOR = {"I": "#2a78d6", "II": "#1baf7a", "III": "#eda100",
+            "IV": "#008300", "V": "#4a3aa7"}
 SERIES = ["#2a78d6", "#1baf7a", "#eda100", "#008300"]   # fixed slot order
 SEQ_BLUE = ["#86b6ef", "#5598e7", "#2a78d6", "#1c5cab", "#104281"]  # ordinal
 
@@ -236,6 +237,63 @@ def fig_tether_profiles(spec: KytoonSpec, winds=(4.0, 8.0, 12.0, 16.0)):
 
 
 # ---------------------------------------------------------------------------
+def fig_fleet_geometry(specs: list[KytoonSpec]):
+    """Shaded 3/4 view of every Mk's 3D geometry. Needs the l1 extra."""
+    from kytoon.geometry import build
+
+    fig = _fig(3.2 * len(specs), 3.4)
+    light = np.array([0.3, -0.5, 0.8])
+    light = light / np.linalg.norm(light)
+
+    for i, spec in enumerate(specs):
+        ax = fig.add_subplot(1, len(specs), i + 1, projection="3d")
+        ax.set_facecolor(SURFACE)
+        base = np.array(matplotlib.colors.to_rgb(
+            MK_COLOR.get(spec.mk, SERIES[0])))
+        scene = build(spec)
+
+        tris, cols = [], []
+        for name, mesh in scene.geometry.items():
+            t = mesh.vertices[mesh.faces]
+            n = np.cross(t[:, 1] - t[:, 0], t[:, 2] - t[:, 0])
+            norms = np.linalg.norm(n, axis=1, keepdims=True)
+            n = n / np.where(norms > 0, norms, 1)
+            lam = 0.4 + 0.6 * np.abs(n @ light)   # double-sided lambert
+            # soft goods a lighter tint; hardware (pod) in ink
+            if name in ("canopy", "keel_wing") or name.startswith("wing"):
+                c = 0.55 * base + 0.45
+            elif name == "pod":
+                c = np.array(matplotlib.colors.to_rgb(INK2))
+            else:
+                c = base
+            tris.append(t)
+            cols.append(np.clip(lam[:, None] * c, 0, 1))
+        tris = np.concatenate(tris)
+        cols = np.concatenate(cols)
+
+        from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+        ax.add_collection3d(Poly3DCollection(tris, facecolors=cols,
+                                             edgecolor="none"))
+        lo = tris.reshape(-1, 3).min(axis=0)
+        hi = tris.reshape(-1, 3).max(axis=0)
+        c0 = (lo + hi) / 2
+        r = (hi - lo).max() / 2
+        ax.set_xlim(c0[0] - r, c0[0] + r)
+        ax.set_ylim(c0[1] - r, c0[1] + r)
+        ax.set_zlim(c0[2] - r, c0[2] + r)
+        ax.set_box_aspect((1, 1, 1))
+        ax.set_proj_type("ortho")
+        ax.view_init(elev=16, azim=-55)
+        ax.set_axis_off()
+        ax.set_title(spec.name, fontsize=9.5, color=INK)
+
+    fig.suptitle("Fleet geometry (spec-derived, models/*.glb)",
+                 fontsize=11, color=INK, x=0.02, ha="left")
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    return fig
+
+
+# ---------------------------------------------------------------------------
 def generate_all(spec_dir: str | Path, out_dir: str | Path) -> list[Path]:
     """Write every figure the installed extras allow. Returns paths written."""
     from kytoon.spec import load_all
@@ -266,6 +324,10 @@ def generate_all(spec_dir: str | Path, out_dir: str | Path) -> list[Path]:
         save(fig_tether_profiles(by_mk["IV"]), "tether_mk4.png")
     except ImportError:
         print("l1 extra (moorpy) absent — skipping tether figures")
+    try:
+        save(fig_fleet_geometry(specs), "fleet_geometry.png")
+    except ImportError:
+        print("l1 extra (trimesh) absent — skipping geometry figure")
     return written
 
 

@@ -19,6 +19,8 @@ python -m kytoon.report specs/ -o reports/l0.md
 - `kytoon/report.py` — comparison table + per-member margins + flags
 - `kytoon/viz.py` — figures: fleet envelopes, structure margins, L1 polars
   vs benchmark, tether profiles → `reports/figures/`
+- `kytoon/geometry.py` — 3D kernel: spec → trimesh scene → `models/*.glb|stl`
+  (volumes gated against spec-derived properties)
 - `tests/` — physics anchors (He 1.05 kg/m³, torus volume closed form,
   wrinkle-moment reference case) + design gates (fleet covers 0→20+ m/s)
 

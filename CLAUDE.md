@@ -32,6 +32,7 @@ python -m venv .venv
 .venv\Scripts\pytest tests/test_l0.py::test_mk1_tow_force_magnitude   # single test
 .venv\Scripts\python -m kytoon.report specs/ -o reports/l0.md    # regenerate comparison report
 .venv\Scripts\python -m kytoon.viz specs/ -o reports/figures     # regenerate figures
+.venv\Scripts\python -m kytoon.geometry specs/ -o models         # export 3D models (l1 extra)
 ```
 
 macOS/Linux (bash): swap `.venv\Scripts\` for `.venv/bin/`.
@@ -85,6 +86,11 @@ Three-stage pipeline, one file per stage:
   CLI: `python -m kytoon.solvers.l1_tether specs/mk1_sled.yaml -v 12 --vmax`.
 - `kytoon/report.py` — turns a list of `L0Report` into the comparison table +
   per-member structure margins + flags seen in `reports/l0.md`.
+- `kytoon/geometry.py` — 3D kernel: realizes each spec as a trimesh scene
+  (closed meshes for pressurized volumes, open surfaces for soft goods) and
+  exports `models/*.glb|stl`. Owns `ArcWing`, the C-arc shape shared with
+  `l1_aero` — when a spec has an LE tube, its developed length pins the arc
+  (don't reintroduce a second shape definition). Needs the `l1` extra.
 - `kytoon/viz.py` — static matplotlib figures into `reports/figures/`:
   fleet envelopes + structure margins (L0-only), Mk polars vs the V3
   benchmark and tether profiles (need the `l1` extra; CLI skips them

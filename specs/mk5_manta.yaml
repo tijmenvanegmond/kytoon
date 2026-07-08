@@ -1,0 +1,33 @@
+name: "Mk V «Manta»"
+mk: "V"
+archetype: blimp
+notes: >
+  Competing design (2026-07-08): prolate He hull with two side delta wings —
+  a winged blimp challenging the two-kytoon carriage logic. Calm-air capable
+  like Mk II/IV but with real wings for envelope reach. Aero coefficients
+  are hand-picked (hull drag folded into cd_op) and NOT benchmark-covered;
+  hull structural check is hoop-only at L0, same known lie as the Mk II lobe.
+hull:
+  length: 22.0
+  diameter: 7.5
+  fabric_areal_density: 0.20
+canopy:                # both side wings, total projected
+  area: 130.0
+  span: 27.5           # tip-to-tip incl. 7.5 m hull
+  areal_density: 0.15
+  cl_op: 0.65          # side wings + hull body lift, hull wake degraded
+  cl_max: 0.9
+  cd_op: 0.18          # includes hull bluff drag
+  twin_skin: false
+tether:
+  length: 400
+  diameter_mm: 12
+  linear_density: 0.09
+  mbl_kn: 110
+  safety_factor: 3.0
+  elevation_deg: 55
+bridle:
+  positions: [0.30, 0.70]
+payload_mass: 60       # gimbaled EO/IR pod + avionics
+rigging_mass: 45
+dock_capacity: 0

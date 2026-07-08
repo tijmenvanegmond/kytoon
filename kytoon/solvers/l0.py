@@ -141,6 +141,22 @@ def solve_structure(spec: KytoonSpec, tow_force_n: float) -> list[TubeStressResu
             )
         )
 
+    if spec.hull is not None:
+        # near-zero-superpressure hull; 500 Pa gust superpressure, cylinder
+        # hoop N = p·r at max diameter (worse than the spheroid's ends)
+        hoop = 500 * (spec.hull.diameter / 2)
+        results.append(
+            TubeStressResult(
+                label="hull envelope (hoop only)",
+                hoop_stress_n_per_m=hoop,
+                hoop_utilization=hoop / spec.hull.fabric_strength_n_per_m,
+                wrinkle_moment_nm=math.nan,
+                collapse_moment_nm=math.nan,
+                applied_moment_nm=0.0,
+                bending_utilization=0.0,
+            )
+        )
+
     if spec.torus is not None:
         # torus: hoop check only at L0 (bending of a ring under 3-pt bridle
         # is an L1 problem). Treat minor tube as hoop vessel.

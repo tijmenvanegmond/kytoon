@@ -17,6 +17,7 @@ class Archetype(str, Enum):
     HELIKITE = "helikite"    # Mk II — buoyant lobe + keel wing
     SPINE = "spine"          # Mk III — semi-rigid spar + twin-skin canopy
     TORUS = "torus"          # Mk IV — annular lifting body
+    BLIMP = "blimp"          # Mk V  — prolate hull + two side delta wings
 
 
 class InflatableTube(BaseModel):
@@ -125,6 +126,32 @@ class Lobe(BaseModel):
         return self.skin_area * self.fabric_areal_density
 
 
+class Hull(BaseModel):
+    """Prolate spheroid He hull (blimp-style), long axis into the wind."""
+    length: float = Field(gt=0, description="hull length [m]")
+    diameter: float = Field(gt=0, description="max hull diameter [m]")
+    fabric_areal_density: float = Field(0.20, gt=0)
+    fabric_strength_n_per_m: float = Field(60_000, gt=0)
+
+    @property
+    def volume(self) -> float:
+        a = self.diameter / 2
+        c = self.length / 2
+        return 4 / 3 * math.pi * a * a * c
+
+    @property
+    def skin_area(self) -> float:
+        # Thomsen approximation for prolate spheroid
+        a = self.diameter / 2
+        c = self.length / 2
+        p = 1.6075
+        return 4 * math.pi * ((a**p * a**p + 2 * (a**p * c**p)) / 3) ** (1 / p)
+
+    @property
+    def mass(self) -> float:
+        return self.skin_area * self.fabric_areal_density
+
+
 class Tether(BaseModel):
     length: float = Field(400, gt=0, description="deployed length [m]")
     diameter_mm: float = Field(14, gt=0)
@@ -158,6 +185,7 @@ class KytoonSpec(BaseModel):
     spar: InflatableTube | None = None
     lobe: Lobe | None = None
     torus: TorusEnvelope | None = None
+    hull: Hull | None = None
     tether: Tether = Field(default_factory=Tether)
     bridle: BridleAttachment = Field(default_factory=BridleAttachment)
     payload_mass: float = Field(0, ge=0, description="avionics/pod/dock hardware [kg]")
@@ -172,6 +200,7 @@ class KytoonSpec(BaseModel):
             Archetype.HELIKITE: ("canopy", "lobe"),
             Archetype.SPINE: ("canopy", "spar"),
             Archetype.TORUS: ("torus",),
+            Archetype.BLIMP: ("canopy", "hull"),
         }[self.archetype]
         for field in need:
             if getattr(self, field) is None:
@@ -191,6 +220,8 @@ class KytoonSpec(BaseModel):
             v += self.lobe.volume
         if self.torus is not None:
             v += self.torus.volume
+        if self.hull is not None:
+            v += self.hull.volume
         return v
 
     @property
@@ -207,6 +238,8 @@ class KytoonSpec(BaseModel):
             m += self.lobe.mass
         if self.torus is not None:
             m += self.torus.mass
+        if self.hull is not None:
+            m += self.hull.mass
         return m
 
     @property
