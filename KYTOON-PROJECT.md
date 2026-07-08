@@ -59,6 +59,8 @@ kytoon/solvers/l1_tether.py  L1 tether: MoorPy quasi-static line in air
                         (drag + sag + true elevation). Also `l1` extra.
 kytoon/aero.py          TU Delft V3 benchmark loader + system-polar model.
 kytoon/report.py        CLI: python -m kytoon.report specs/ -o reports/l0.md
+kytoon/viz.py           CLI: python -m kytoon.viz specs/ -o reports/figures
+                        (L0 figures always; polar/tether figures need `l1`)
 data/tudelft_v3/        vendored CC-BY benchmark (see SOURCE.md for citations).
                         Treat as read-only; re-download from awegroup if stale.
 tests/test_l0.py        14 tests = the L0 validation contract (see §4).
@@ -122,7 +124,8 @@ consciously replace them (and update this file + tests):
 ## 4. The test suite is a contract
 
 `tests/test_l0.py` (14) + `tests/test_l1_aero.py` (11) +
-`tests/test_l1_tether.py` (8) — all passing at last compile. Categories:
+`tests/test_l1_tether.py` (8) + `tests/test_viz.py` (5) — all passing at
+last compile. Categories:
 
 - **Physics anchors** (must never change without a source): He net-lift
   constant; torus volume closed form; wrinkle-moment reference case

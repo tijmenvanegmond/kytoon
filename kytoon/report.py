@@ -103,7 +103,7 @@ def main(argv: list[str] | None = None) -> int:
     text = full_report(reports)
     if args.out:
         args.out.parent.mkdir(parents=True, exist_ok=True)
-        args.out.write_text(text)
+        args.out.write_text(text, encoding="utf-8")  # report carries «»/✔✘
         print(f"wrote {args.out}")
     else:
         print(text)

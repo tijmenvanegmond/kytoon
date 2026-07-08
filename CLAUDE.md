@@ -31,6 +31,7 @@ python -m venv .venv
 .venv\Scripts\pytest                                             # all validation gates
 .venv\Scripts\pytest tests/test_l0.py::test_mk1_tow_force_magnitude   # single test
 .venv\Scripts\python -m kytoon.report specs/ -o reports/l0.md    # regenerate comparison report
+.venv\Scripts\python -m kytoon.viz specs/ -o reports/figures     # regenerate figures
 ```
 
 macOS/Linux (bash): swap `.venv\Scripts\` for `.venv/bin/`.
@@ -84,6 +85,11 @@ Three-stage pipeline, one file per stage:
   CLI: `python -m kytoon.solvers.l1_tether specs/mk1_sled.yaml -v 12 --vmax`.
 - `kytoon/report.py` — turns a list of `L0Report` into the comparison table +
   per-member structure margins + flags seen in `reports/l0.md`.
+- `kytoon/viz.py` — static matplotlib figures into `reports/figures/`:
+  fleet envelopes + structure margins (L0-only), Mk polars vs the V3
+  benchmark and tether profiles (need the `l1` extra; CLI skips them
+  gracefully). Entity colors are fixed per Mk — don't re-derive them from
+  series order.
 - `kytoon/aero.py` — independent calibration path, not called by the solvers
   at runtime. Loads vendored TU Delft V3 wind-tunnel/CFD polars from
   `data/tudelft_v3/*.csv`, builds a bridle-drag-corrected `SystemPolar`, and

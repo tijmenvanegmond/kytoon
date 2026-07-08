@@ -76,6 +76,7 @@ class L1TetherReport:
     wll_fraction: float             # ship-end tension / tether WLL
     sag_max_m: float                # max perpendicular deviation from chord
     line_drag_n: float              # integrated aero drag on the line
+    line_xz: np.ndarray | None = None   # (n, 2) profile in the wind plane [m]
     flags: list[str] = field(default_factory=list)
 
 
@@ -165,6 +166,7 @@ def solve(spec: KytoonSpec, v_wind: float, n_segs: int = 40) -> L1TetherReport:
         wll_fraction=tension_ship / wll,
         sag_max_m=sag,
         line_drag_n=float(np.linalg.norm(line.fCurrent)),
+        line_xz=np.column_stack([xs, zs]),
         flags=flags,
     )
 

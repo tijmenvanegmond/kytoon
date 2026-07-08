@@ -220,7 +220,8 @@ class KytoonSpec(BaseModel):
 
 
 def load_spec(path: str | Path) -> KytoonSpec:
-    with open(path) as f:
+    # explicit utf-8: spec names carry «» — Windows' cp1252 default mangles them
+    with open(path, encoding="utf-8") as f:
         return KytoonSpec.model_validate(yaml.safe_load(f))
 
 
