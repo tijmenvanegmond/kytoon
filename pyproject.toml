@@ -6,7 +6,13 @@ requires-python = ">=3.11"
 dependencies = ["pydantic>=2", "pyyaml>=6", "numpy>=1.26"]
 
 [project.optional-dependencies]
-l1 = ["aerosandbox", "trimesh", "gmsh"]   # next fidelity tier
+# L1 aero runs on awegroup's VSM (git-only, not on PyPI; pulls aerosandbox
+# via neuralfoil). trimesh/gmsh reserved for the geometry-kernel task.
+l1 = [
+    "vsm @ git+https://github.com/awegroup/Vortex-Step-Method.git",
+    "trimesh",
+    "gmsh",
+]
 dev = ["pytest>=8"]
 
 [tool.pytest.ini_options]

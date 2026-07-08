@@ -20,8 +20,8 @@ the kytoon itself by a passive grapple fixture on the leading-edge underside
 after it is winched down to ~20 m, where it hovers quasi-statically on He
 buoyancy.
 
-The ship, arm, and operational design live **outside this repo** as two SVG
-drawing sheets (`kiteship-ga.svg`, `kytoon-iterations.svg`) and a narrative
+The ship, arm, and operational design live as two SVG
+drawing sheets under docs (`kiteship-ga.svg`, `kytoon-iterations.svg`) and a narrative
 log (`kiteship-project-log.md`). This repo owns the *numbers*.
 
 ### The four archetypes (specs/*.yaml)
@@ -52,11 +52,16 @@ kytoon/spec.py          pydantic v2 schema. Volumes/masses are derived
                         properties, never stored fields.
 kytoon/solvers/l0.py    closed-form physics. SI units everywhere unless the
                         field name says otherwise (_bar, _mm, _kn, _deg).
+kytoon/solvers/l1_aero.py  L1 aero: parametric C-arc LEI wing from the spec's
+                        bulk numbers → VSM (awegroup) polar. Needs the `l1`
+                        extra; everything else runs without it.
 kytoon/aero.py          TU Delft V3 benchmark loader + system-polar model.
 kytoon/report.py        CLI: python -m kytoon.report specs/ -o reports/l0.md
 data/tudelft_v3/        vendored CC-BY benchmark (see SOURCE.md for citations).
                         Treat as read-only; re-download from awegroup if stale.
-tests/test_l0.py        14 tests = the validation contract (see §4).
+tests/test_l0.py        14 tests = the L0 validation contract (see §4).
+tests/test_l1_aero.py   11 tests = the L1 aero contract; VSM-dependent ones
+                        skip unless the `l1` extra is installed.
 ```
 
 Python ≥3.11, deps: pydantic v2, pyyaml, numpy (numpy currently unused by L0
@@ -99,12 +104,20 @@ consciously replace them (and update this file + tests):
 7. **Mk II lobe**: 500 Pa assumed gust superpressure for the hoop check;
    its wing coefficients (cl_op 0.6, cd_op 0.25 for lobe-wake degradation)
    are hand-picked and NOT covered by the benchmark (§5 caveat).
+8. **L1 aero geometry** (`l1_aero.py`): wing is a circular C-arc with the
+   V3's shape defaults (height/span 0.376, parabolic taper 0.55), flat
+   sections — no twist, no billow (that's membrane FEM, task §7.2). Section
+   aero is Breukels' 2-param LEI regression; twin-skin (Mk III) is
+   approximated by a slim tube (t = 0.06) and flagged conservative. Measured
+   pipeline error vs the vendored wind tunnel: CL_max +10%, (L/D)max −19%
+   — both gated in tests.
 
 ---
 
 ## 4. The test suite is a contract
 
-`tests/test_l0.py` — 14 tests, all passing at last compile. Categories:
+`tests/test_l0.py` (14) + `tests/test_l1_aero.py` (11) — all passing at
+last compile. Categories:
 
 - **Physics anchors** (must never change without a source): He net-lift
   constant; torus volume closed form; wrinkle-moment reference case
@@ -117,6 +130,11 @@ consciously replace them (and update this file + tests):
   coefficient within 15% of the benchmark operating point. The last one
   fails if someone edits spec aero coefficients into unsupported territory —
   that is intentional.
+- **L1 pipeline gates** (test_l1_aero.py): the parametric-V3-through-VSM
+  polar stays inside its measured error bands (CL_max ±15% of tunnel,
+  (L/D)max in [−25%, +10%]); Mk I reaches cl_op pre-stall on its *own*
+  geometry; Mk I resultant coefficient within 20% of spec; Mk II lobe and
+  Mk III twin-skin approximations are flagged; Mk IV refuses (no wing).
 
 If a spec change breaks a design gate, the answer is a design conversation,
 not loosening the test.
@@ -151,8 +169,8 @@ legitimately lower per m² and not comparable to AWE traction figures.
 
 - **Mk I is not self-neutral.** 37 m³ He ≈ 39 kg lift vs 185 kg mass.
   Self-neutrality needs ~180 m³ (≈Ø2 m LE tube). Current design accepts
-  v_min ≈ 3.8 m/s instead. The iteration drawing sheet still says
-  "≈ 0 static" — known drawing/code disagreement, see task list.
+  v_min ≈ 3.8 m/s instead. (The iteration sheet's old "≈ 0 static" claim
+  was fixed in REV B, 2026-07-08.)
 - **Mk III spar was resized by the solver**: original Ø0.6 m @ 0.4 bar
   wrinkled at 316% under dock load alone; now Ø0.8 m @ 0.6 bar with the
   5-fixture rail doubling as bridle nodes → 48%.
@@ -161,24 +179,34 @@ legitimately lower per m² and not comparable to AWE traction figures.
 - **Drawing-level finding**: the arm's 15 m reach envelope overlaps the
   tether traveller zone — arm motion planning must treat the tether as a
   dynamic keep-out volume. Unresolved, lives with the ship design.
+- **L1 confirms the hand-picked aero (2026-07-08)**: solving Mk I's and
+  Mk III's *own* parametric geometry with VSM reproduces the spec operating
+  points — resultant-force ratio L1/spec 0.99 (Mk I, cl_op 0.8 at α≈8.9°)
+  and 1.00 (Mk III, cl_op 0.9 at α≈11.2°). Mk I L1 cd_op 0.121 vs spec 0.15
+  (spec slightly conservative); Mk III L1 cd_op 0.149 vs spec 0.12 (spec
+  slightly optimistic, flagged — twin-skin section model is conservative).
 
 ---
 
 ## 7. Task queue (priority order)
 
-1. **L1 aero**: the awegroup org ships an open Vortex Step Method (VSM)
-   solver validated against the vendored data. Integrate it (or AeroSandbox
-   VLM as fallback) to compute Mk-specific polars instead of borrowing the
-   V3's. Entry point suggestion: `kytoon/solvers/l1_aero.py`, keep the
-   L0 interface (`solve(spec) -> report`) shape.
+1. ~~**L1 aero**~~ — v1 DONE 2026-07-08: `kytoon/solvers/l1_aero.py` builds a
+   parametric C-arc wing per spec and solves it with awegroup VSM (Breukels
+   sections), `solve(spec) -> L1AeroReport`. Validated against the vendored
+   tunnel data (§3.8 error bands). Result: Mk I and Mk III spec coefficients
+   hold on their own geometry (resultant ratio 0.99 / 1.00). Remaining for
+   v2: geometric twist/billow (couples to §7.2), feed L1 polars back into
+   the wind-envelope solve, Mk II lobe (→ task 5).
 2. **L1 structure**: mem4py membrane FEM to calibrate/replace
    TUBE_LOAD_SHARE (§3.3). Success criterion: a computed load-share value
    with a validation case, replacing the 0.35 constant.
 3. **L1 tether**: MoorPy quasi-static line (a kite tether is an inverted
    mooring line) — adds drag/sag, corrects v_max and tether-angle numbers.
-4. **Sync the drawings**: `kytoon-iterations.svg` spec table predates the
-   solver — update its numbers from `reports/l0.md` (esp. Mk I static lift
-   and all wind envelopes). Drawings live outside the repo.
+4. ~~**Sync the drawings**~~ — DONE 2026-07-08 (`docs/kytoon-iterations.svg`
+   REV B): spec table, He volumes, static lifts, wind envelopes, tow forces,
+   Mk I strut count/span/AR, Mk III spar callout (Ø0.8 m @ 0.6 bar) and
+   5-fixture rail all synced to `reports/l0.md`. Re-sync whenever the solver
+   numbers move — the sheet now cites REV B provenance in its footer.
 5. **Mk II aero**: no benchmark exists for lobe+wing; either find aerostat
    hybrid data or schedule an L1 VLM study with the lobe modeled as a body.
 6. **Geometry kernel** (enables L1/L2): parametric mesh generation per Mk
@@ -190,9 +218,10 @@ legitimately lower per m² and not comparable to AWE traction figures.
 
 ## 8. Wider-context pointers
 
-- Companion artifacts (not in repo): `kiteship-ga.svg` (ship GA),
-  `kytoon-iterations.svg` (Mk sheet), `kiteship-project-log.md` (narrative),
-  `kytoon-l0-report.md` (generated — regenerate, don't hand-edit).
+- Companion artifacts (in `docs/`): `kiteship-ga.svg` (ship GA),
+  `kytoon-iterations.svg` (Mk sheet, REV B), `kiteship-project-log.md`
+  (narrative log — historical snapshot, don't retro-edit). The generated
+  solver output lives at `reports/l0.md` (regenerate, don't hand-edit).
 - Domain group worth knowing: TU Delft AWE group (Schmehl), github.com/awegroup
   — VSM, awebox (trajectory optimization on CasADi), and the V3 dataset.
 - Design idiom of this project: **YAML spec → derived properties → solver →

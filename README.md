@@ -28,8 +28,14 @@ python -m kytoon.report specs/ -o reports/l0.md
 - No gust cases, no FSI: L2 (OpenFOAM + preCICE) for the final candidate only.
 
 ## Fidelity ladder (next tiers)
-- L1: AeroSandbox VLM (aero), mem4py (membrane FEM), MoorPy (tether),
-  trimesh/gmsh for geometry + STL export. `pip install -e ".[l1]"`
+- L1 aero — **built**: `kytoon/solvers/l1_aero.py` solves each Mk's own
+  parametric C-arc LEI wing with awegroup's Vortex Step Method (Breukels
+  section polars). Validated against the vendored V3 wind tunnel data:
+  CL_max +10%, (L/D)max −19% (conservative), gated in `tests/test_l1_aero.py`
+  (skipped unless the `l1` extra is installed: `pip install -e ".[l1]"`).
+  Run one spec: `python -m kytoon.solvers.l1_aero specs/mk1_sled.yaml`.
+- L1 structure/tether — pending: mem4py (membrane FEM, calibrates
+  TUBE_LOAD_SHARE), MoorPy (tether sag/drag).
 - L2: OpenFOAM ↔ CalculiX/FEniCSx via preCICE; gust + capture-state loads.
 - Reference data: TU Delft V3 benchmark is VENDORED in `data/tudelft_v3/`
   (CC-BY, awegroup) and wired into `kytoon/aero.py`. Wind-tunnel + CFD polars
