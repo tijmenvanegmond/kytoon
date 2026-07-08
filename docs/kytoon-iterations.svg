@@ -1,0 +1,256 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1050" font-family="Iosevka, 'JetBrains Mono', 'Courier New', monospace">
+  <defs>
+    <pattern id="grid2" width="25" height="25" patternUnits="userSpaceOnUse">
+      <path d="M25 0H0V25" fill="none" stroke="#2c4a5e" stroke-width="0.4" opacity="0.25"/>
+    </pattern>
+  </defs>
+
+  <rect width="1400" height="1050" fill="#12222e"/>
+  <rect width="1400" height="1050" fill="url(#grid2)"/>
+  <rect x="18" y="18" width="1364" height="1014" fill="none" stroke="#c8d8e4" stroke-width="1.5"/>
+  <rect x="24" y="24" width="1352" height="1002" fill="none" stroke="#c8d8e4" stroke-width="0.5"/>
+
+  <text x="60" y="70" fill="#eef4f8" font-size="16" font-weight="bold" letter-spacing="3">KYTOON ITERATIONS — MK I → MK IV</text>
+  <text x="60" y="92" fill="#8fb0c4" font-size="11">Common interfaces: tether termination + load cell · grapple fixture (LE underside) · IMU/GNSS + He pressure telemetry · capture-line hardpoint</text>
+  <text x="1180" y="70" fill="#8fb0c4" font-size="11">DWG KS-40-KY-002 · REV A</text>
+
+  <!-- legend -->
+  <g transform="translate(830,84)">
+    <rect x="0" y="-10" width="12" height="12" fill="#9fe0ff"/>
+    <text x="18" y="0" fill="#c8d8e4" font-size="10">He VOLUME</text>
+    <rect x="120" y="-10" width="12" height="12" fill="#ff7a2f"/>
+    <text x="138" y="0" fill="#c8d8e4" font-size="10">TETHER</text>
+    <circle cx="226" cy="-4" r="5" fill="#ffd23f"/>
+    <text x="238" y="0" fill="#c8d8e4" font-size="10">GRAPPLE FIXTURE</text>
+  </g>
+
+  <!-- ============ QUADRANT FRAMES ============ -->
+  <g stroke="#3d5b70" stroke-width="0.8" fill="none">
+    <rect x="50" y="110" width="640" height="330"/>
+    <rect x="710" y="110" width="640" height="330"/>
+    <rect x="50" y="460" width="640" height="330"/>
+    <rect x="710" y="460" width="640" height="330"/>
+  </g>
+
+  <!-- ============ MK I : SLED (baseline LEI) ============ -->
+  <g transform="translate(50,110)">
+    <rect x="0" y="0" width="640" height="28" fill="#1b3140"/>
+    <text x="12" y="19" fill="#eef4f8" font-size="12" font-weight="bold">MK I «SLED» — BASELINE LEI TRACTION KYTOON</text>
+    <text x="470" y="19" fill="#7fd4a8" font-size="10">STATUS: REFERENCE DESIGN</text>
+
+    <!-- front view: arc canopy, He LE tube -->
+    <g transform="translate(60,90)">
+      <path d="M0 120 Q20 20 130 4 Q240 20 260 120" fill="none" stroke="#eef4f8" stroke-width="1.6"/>
+      <path d="M0 120 Q20 20 130 4 Q240 20 260 120" fill="none" stroke="#9fe0ff" stroke-width="7" stroke-linecap="round" opacity="0.9"/>
+      <!-- struts -->
+      <g stroke="#9fe0ff" stroke-width="3.5" opacity="0.7">
+        <line x1="40" y1="66" x2="52" y2="110"/>
+        <line x1="130" y1="4" x2="130" y2="52"/>
+        <line x1="220" y1="66" x2="208" y2="110"/>
+      </g>
+      <path d="M6 118 Q130 60 254 118" fill="none" stroke="#c8d8e4" stroke-width="0.8"/>
+      <!-- bridle to tether -->
+      <g stroke="#c8d8e4" stroke-width="0.6">
+        <line x1="10" y1="122" x2="130" y2="205"/>
+        <line x1="70" y1="98" x2="130" y2="205"/>
+        <line x1="130" y1="90" x2="130" y2="205"/>
+        <line x1="190" y1="98" x2="130" y2="205"/>
+        <line x1="250" y1="122" x2="130" y2="205"/>
+      </g>
+      <line x1="130" y1="205" x2="130" y2="245" stroke="#ff7a2f" stroke-width="2.5"/>
+      <circle cx="130" cy="52" r="4.5" fill="#ffd23f"/>
+      <text x="-14" y="242" fill="#5f8299" font-size="9">FRONT VIEW · span 32 m</text>
+    </g>
+
+    <g transform="translate(390,52)" fill="#c8d8e4" font-size="10">
+      <text y="14">· C-shape LEI, 400 m², AR 4.5</text>
+      <text y="34">· He in LE tube (Ø0.9 m) + 3 struts ≈ 95 m³</text>
+      <text y="54">· Static buoyancy nets out own mass only —</text>
+      <text y="74"><tspan fill="#ffd23f">  no-wind = neutral hover, not lift</tspan></text>
+      <text y="94">· Highest pull/m²: traction + launch boost</text>
+      <text y="114">· Single grapple fixture, center LE underside</text>
+      <text y="134">· Weakness: gust collapse margin at canopy</text>
+      <text y="154">  edges; recovery only via winch+arm</text>
+    </g>
+  </g>
+
+  <!-- ============ MK II : HELIKITE (buoyancy-dominant) ============ -->
+  <g transform="translate(710,110)">
+    <rect x="0" y="0" width="640" height="28" fill="#1b3140"/>
+    <text x="12" y="19" fill="#eef4f8" font-size="12" font-weight="bold">MK II «HELIKITE» — BUOYANCY-DOMINANT ISR LOITERER</text>
+    <text x="500" y="19" fill="#7fd4a8" font-size="10">STATUS: TRADE STUDY</text>
+
+    <!-- side view: oblate He lobe with kite wing under -->
+    <g transform="translate(70,80)">
+      <ellipse cx="130" cy="60" rx="120" ry="52" fill="#16354a" stroke="#9fe0ff" stroke-width="5"/>
+      <!-- keel wing -->
+      <path d="M40 108 L250 96 L150 150 Z" fill="#22394a" stroke="#eef4f8" stroke-width="1.4"/>
+      <circle cx="130" cy="116" r="4.5" fill="#ffd23f"/>
+      <!-- EO/IR pod -->
+      <rect x="118" y="150" width="24" height="16" rx="4" fill="#22394a" stroke="#c8d8e4" stroke-width="1"/>
+      <line x1="130" y1="166" x2="130" y2="230" stroke="#ff7a2f" stroke-width="2.5"/>
+      <text x="-10" y="242" fill="#5f8299" font-size="9">SIDE VIEW · lobe Ø 14 m</text>
+    </g>
+
+    <g transform="translate(390,52)" fill="#c8d8e4" font-size="10">
+      <text y="14">· Oblate He lobe + delta keel wing</text>
+      <text y="34">· ≈ 650 m³ He → <tspan fill="#9fe0ff">+450 kg static lift</tspan></text>
+      <text y="54">· Flies at 0 m/s wind: true all-weather ISR</text>
+      <text y="74">· Wing adds dynamic lift + heading stability</text>
+      <text y="94">· Low L/D — poor traction, no launch boost</text>
+      <text y="114">· Gimbal pod slung under lobe, quietest</text>
+      <text y="134">  sensor platform of the four</text>
+      <text y="154">· Large radar cross-section; slow to stow</text>
+    </g>
+  </g>
+
+  <!-- ============ MK III : SPINE (semi-rigid, drone dock) ============ -->
+  <g transform="translate(50,460)">
+    <rect x="0" y="0" width="640" height="28" fill="#1b3140"/>
+    <text x="12" y="19" fill="#eef4f8" font-size="12" font-weight="bold">MK III «SPINE» — SEMI-RIGID SPAR + DRONE DOCK</text>
+    <text x="470" y="19" fill="#7fd4a8" font-size="10">STATUS: TARGET DESIGN</text>
+
+    <!-- side view: inflatable keel spar, twin-skin canopy, drone perched -->
+    <g transform="translate(55,95)">
+      <!-- canopy -->
+      <path d="M10 60 Q140 -14 280 34 Q160 78 24 74 Q6 68 10 60 Z" fill="#22394a" stroke="#eef4f8" stroke-width="1.5"/>
+      <path d="M10 60 Q140 -14 280 34" fill="none" stroke="#9fe0ff" stroke-width="6" stroke-linecap="round"/>
+      <!-- keel spar under canopy -->
+      <line x1="30" y1="88" x2="270" y2="66" stroke="#9fe0ff" stroke-width="8" stroke-linecap="round" opacity="0.85"/>
+      <text x="292" y="70" fill="#9fe0ff" font-size="9">KEEL SPAR (0.4 bar)</text>
+      <!-- grapple rail: three fixtures along spar -->
+      <circle cx="80" cy="83" r="4" fill="#ffd23f"/>
+      <circle cx="150" cy="77" r="4" fill="#ffd23f"/>
+      <circle cx="220" cy="71" r="4" fill="#ffd23f"/>
+      <text x="60" y="104" fill="#ffd23f" font-size="9">GRAPPLE RAIL — 3 FIXTURES (arm capture from any bearing)</text>
+      <!-- drone docked on top -->
+      <g transform="translate(150,4) rotate(4)">
+        <line x1="-34" y1="0" x2="34" y2="0" stroke="#7fd4a8" stroke-width="3"/>
+        <ellipse cx="0" cy="4" rx="9" ry="4.5" fill="#7fd4a8"/>
+      </g>
+      <text x="196" y="6" fill="#7fd4a8" font-size="9">DRONE DOCK (perch + recharge, 300 kg)</text>
+      <!-- bridle/tether -->
+      <g stroke="#c8d8e4" stroke-width="0.6">
+        <line x1="34" y1="90" x2="120" y2="170"/>
+        <line x1="150" y1="80" x2="120" y2="170"/>
+        <line x1="264" y1="68" x2="120" y2="170"/>
+      </g>
+      <line x1="120" y1="170" x2="120" y2="212" stroke="#ff7a2f" stroke-width="2.5"/>
+      <text x="-6" y="224" fill="#5f8299" font-size="9">SIDE VIEW · chord 9 m</text>
+    </g>
+
+    <g transform="translate(400,52)" fill="#c8d8e4" font-size="10">
+      <text y="14">· Twin-skin canopy, closable inlets, 350 m²</text>
+      <text y="34">· Inflatable keel spar = stiff load spine:</text>
+      <text y="54">  carries dock, rail, avionics, conductive pwr</text>
+      <text y="74">· Drone perches → recharges from tether,</text>
+      <text y="94">  relaunches without descending to deck</text>
+      <text y="114">· Widest wind envelope (6–25 m/s)</text>
+      <text y="134">· He only in spar+LE: minimal static lift,</text>
+      <text y="154">  needs Mk II pairing for calm-air ops</text>
+    </g>
+  </g>
+
+  <!-- ============ MK IV : TORUS (annular) ============ -->
+  <g transform="translate(710,460)">
+    <rect x="0" y="0" width="640" height="28" fill="#1b3140"/>
+    <text x="12" y="19" fill="#eef4f8" font-size="12" font-weight="bold">MK IV «TORUS» — ANNULAR LIFTING BODY</text>
+    <text x="500" y="19" fill="#7fd4a8" font-size="10">STATUS: EXPERIMENTAL</text>
+
+    <!-- oblique view: torus with central duct + capture line through center -->
+    <g transform="translate(80,84)">
+      <ellipse cx="130" cy="70" rx="125" ry="50" fill="none" stroke="#9fe0ff" stroke-width="12" opacity="0.9"/>
+      <ellipse cx="130" cy="70" rx="125" ry="50" fill="none" stroke="#eef4f8" stroke-width="1"/>
+      <ellipse cx="130" cy="70" rx="72" ry="27" fill="#12222e" stroke="#eef4f8" stroke-width="1"/>
+      <!-- capture line through duct -->
+      <line x1="130" y1="-16" x2="130" y2="70" stroke="#7fd4a8" stroke-width="1.6" stroke-dasharray="6 4"/>
+      <line x1="130" y1="70" x2="130" y2="150" stroke="#7fd4a8" stroke-width="1.6" stroke-dasharray="6 4"/>
+      <text x="144" y="-4" fill="#7fd4a8" font-size="9">CAPTURE LINE THROUGH DUCT</text>
+      <!-- grapple fixtures at quadrants -->
+      <circle cx="5" cy="70" r="4.5" fill="#ffd23f"/>
+      <circle cx="255" cy="70" r="4.5" fill="#ffd23f"/>
+      <circle cx="130" cy="120" r="4.5" fill="#ffd23f"/>
+      <!-- 3-point bridle -->
+      <g stroke="#c8d8e4" stroke-width="0.6">
+        <line x1="5" y1="70" x2="130" y2="180"/>
+        <line x1="255" y1="70" x2="130" y2="180"/>
+        <line x1="130" y1="120" x2="130" y2="180"/>
+      </g>
+      <line x1="130" y1="180" x2="130" y2="218" stroke="#ff7a2f" stroke-width="2.5"/>
+      <text x="-16" y="230" fill="#5f8299" font-size="9">OBLIQUE VIEW · ring Ø 16 m, duct Ø 9 m</text>
+    </g>
+
+    <g transform="translate(400,52)" fill="#c8d8e4" font-size="10">
+      <text y="14">· Toroidal He ring, ≈ 700 m³ → +500 kg static</text>
+      <text y="34">· Omnidirectional: no heading, no flying —</text>
+      <text y="54">  immune to wind-shift upsets at anchor</text>
+      <text y="74">· Capture line hangs through central duct:</text>
+      <text y="94">  duct guides drone into line, self-centering</text>
+      <text y="114">· 3-point bridle + quadrant grapple fixtures:</text>
+      <text y="134">  arm captures from any bearing</text>
+      <text y="154">· No traction/boost role · barge-ring mfg</text>
+      <text y="174">  heritage applies to envelope tooling</text>
+    </g>
+  </g>
+
+  <!-- ============ SPEC TABLE ============ -->
+  <g transform="translate(50,812)">
+    <rect x="0" y="0" width="1300" height="196" fill="#16283600" stroke="#3d5b70" stroke-width="0.8"/>
+    <rect x="0" y="0" width="1300" height="30" fill="#1b3140"/>
+    <g fill="#eef4f8" font-size="11" font-weight="bold">
+      <text x="14" y="20">PARAMETER</text>
+      <text x="330" y="20">MK I SLED</text>
+      <text x="580" y="20">MK II HELIKITE</text>
+      <text x="830" y="20">MK III SPINE</text>
+      <text x="1080" y="20">MK IV TORUS</text>
+    </g>
+    <g stroke="#3d5b70" stroke-width="0.5">
+      <line x1="0" y1="58" x2="1300" y2="58"/>
+      <line x1="0" y1="86" x2="1300" y2="86"/>
+      <line x1="0" y1="114" x2="1300" y2="114"/>
+      <line x1="0" y1="142" x2="1300" y2="142"/>
+      <line x1="0" y1="170" x2="1300" y2="170"/>
+      <line x1="318" y1="0" x2="318" y2="196"/>
+      <line x1="568" y1="0" x2="568" y2="196"/>
+      <line x1="818" y1="0" x2="818" y2="196"/>
+      <line x1="1068" y1="0" x2="1068" y2="196"/>
+    </g>
+    <g fill="#8fb0c4" font-size="10">
+      <text x="14" y="48">Wing area / He volume</text>
+      <text x="14" y="76">Static net lift (He)</text>
+      <text x="14" y="104">Wind envelope</text>
+      <text x="14" y="132">Launch boost / traction</text>
+      <text x="14" y="160">Recovery interface</text>
+      <text x="14" y="188">Primary role</text>
+    </g>
+    <g fill="#c8d8e4" font-size="10">
+      <text x="330" y="48">400 m² / 95 m³</text>
+      <text x="330" y="76">≈ 0 (self-neutral)</text>
+      <text x="330" y="104">4–18 m/s</text>
+      <text x="330" y="132">★★★ / 7 t @ 12 m/s</text>
+      <text x="330" y="160">1× fixture, LE center</text>
+      <text x="330" y="188">Boost + traction</text>
+
+      <text x="580" y="48">250 m² / 650 m³</text>
+      <text x="580" y="76">+450 kg</text>
+      <text x="580" y="104">0–14 m/s</text>
+      <text x="580" y="132">★ / minimal</text>
+      <text x="580" y="160">1× fixture, keel</text>
+      <text x="580" y="188">Persistent ISR</text>
+
+      <text x="830" y="48">350 m² / 60 m³</text>
+      <text x="830" y="76">≈ −40 kg (heavier)</text>
+      <text x="830" y="104">6–25 m/s</text>
+      <text x="830" y="132">★★★ / 6 t @ 12 m/s</text>
+      <text x="830" y="160">3× rail + drone dock</text>
+      <text x="830" y="188">Boost + perch/recharge</text>
+
+      <text x="1080" y="48">— / 700 m³</text>
+      <text x="1080" y="76">+500 kg</text>
+      <text x="1080" y="104">0–12 m/s</text>
+      <text x="1080" y="132">✕ / none</text>
+      <text x="1080" y="160">4× quadrant + duct</text>
+      <text x="1080" y="188">Calm-air recovery node</text>
+    </g>
+  </g>
+</svg>

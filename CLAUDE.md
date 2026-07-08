@@ -13,15 +13,27 @@ spar + twin-skin canopy), Mk IV «Torus» (annular aerostat, no wing).
 Pipeline: `specs/*.yaml` → pydantic `KytoonSpec` → closed-form solvers →
 markdown comparison report.
 
+**Read `KYTOON-PROJECT.md` before modifying solvers, specs, or tests.** It is
+the canonical context: the wider kiteship system this feeds, the fleet logic
+behind the four Mks, the documented physics approximations ("known lies") that
+must be preserved or consciously replaced, findings already derived (don't
+re-derive them), and the prioritized task queue. This file covers only
+commands and code architecture.
+
 ## Commands
 
+Windows (PowerShell):
+
 ```
-python -m venv .venv && .venv/bin/pip install setuptools wheel pydantic pyyaml numpy pytest
-.venv/bin/pip install --no-build-isolation --no-deps -e .   # editable install, see gotcha below
-.venv/bin/pytest                                             # all validation gates
-.venv/bin/pytest tests/test_l0.py::test_mk1_tow_force_magnitude   # single test
-.venv/bin/python -m kytoon.report specs/ -o reports/l0.md    # regenerate comparison report
+python -m venv .venv
+.venv\Scripts\pip install setuptools wheel pydantic pyyaml numpy pytest
+.venv\Scripts\pip install --no-build-isolation --no-deps -e .   # editable install, see gotcha below
+.venv\Scripts\pytest                                             # all validation gates
+.venv\Scripts\pytest tests/test_l0.py::test_mk1_tow_force_magnitude   # single test
+.venv\Scripts\python -m kytoon.report specs/ -o reports/l0.md    # regenerate comparison report
 ```
+
+macOS/Linux (bash): swap `.venv\Scripts\` for `.venv/bin/`.
 
 Gotcha: plain `pip install -e ".[dev]"` (as written in README.md) fails with
 `Multiple top-level packages discovered in a flat-layout` because `data/`,
@@ -71,7 +83,22 @@ physics anchors against hand-computed or published reference values (e.g.
 `NET_LIFT_PER_M3 ≈ 1.046`, torus volume closed form, wrinkle-moment formula),
 and fleet-level design gates (e.g. "the four Mk specs together must cover
 0→20+ m/s", "Mk II/IV must be calm-air capable", "Mk I/III must need <8 m/s
-to fly").
+to fly"). The suite is a contract: if a spec change breaks a design gate,
+that's a design conversation, not a reason to loosen the test.
+
+## Conventions
+
+- `specs/*.yaml` are THE design state. To change a design, edit the spec,
+  not constants in code.
+- SI units everywhere unless the field name says otherwise
+  (`_bar`, `_mm`, `_kn`, `_deg`).
+- L0 means every solver result is explainable by hand on paper. Anything
+  needing iteration or a mesh belongs in L1, not here (the one existing
+  exception: the wrinkle-margin bisection in `solve_wind_envelope`).
+- `data/tudelft_v3/` is vendored CC-BY benchmark data — treat as read-only;
+  re-download from awegroup if stale.
+- Style: dataclasses for results, pydantic for specs, no classes where a
+  function does.
 
 ## Fidelity ladder
 
