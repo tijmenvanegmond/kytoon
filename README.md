@@ -41,6 +41,8 @@ python -m kytoon.report specs/ -o reports/l0.md
 - L1 tether — **built**: `kytoon/solvers/l1_tether.py` runs the tether as an
   inverted mooring line in air (MoorPy): line drag + sag, true elevation
   angles, drag-corrected tether v_max. `tests/test_l1_tether.py`.
+- L1 body aero — **built**: `kytoon/solvers/l1_body_aero.py` bounds the
+  Mk II/V wing+body coefficients with AeroSandbox AeroBuildup.
 - L1 structure — pending/blocked: mem4py (membrane FEM, calibrates
   TUBE_LOAD_SHARE) needs a C++ toolchain and gmsh meshes; see
   KYTOON-PROJECT.md §7.2.

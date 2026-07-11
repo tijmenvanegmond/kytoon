@@ -10,6 +10,7 @@ dependencies = ["pydantic>=2", "pyyaml>=6", "numpy>=1.26"]
 # via neuralfoil). trimesh/gmsh reserved for the geometry-kernel task.
 l1 = [
     "vsm @ git+https://github.com/awegroup/Vortex-Step-Method.git",
+    "aerosandbox",   # body-interference aero (also pulled in via VSM chain)
     "moorpy",
     "trimesh",
     "gmsh",

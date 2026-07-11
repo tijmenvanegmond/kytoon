@@ -78,6 +78,12 @@ Three-stage pipeline, one file per stage:
   point, spec-consistency ratio, flags). Guarded import: works only with the
   `l1` extra installed; everything else must keep running without it.
   CLI: `python -m kytoon.solvers.l1_aero specs/mk1_sled.yaml`.
+- `kytoon/solvers/l1_body_aero.py` — L1 tier (optional): the wing+body
+  hybrids (Mk II lobe, Mk V hull) through AeroSandbox `AeroBuildup`.
+  Semi-empirical — it *bounds* the hand-picked spec coefficients (rigid
+  smooth body = drag lower bound, no wake blanketing = CL upper bound),
+  it does not certify them. Refuses non-hybrid archetypes.
+  CLI: `python -m kytoon.solvers.l1_body_aero specs/mk5_manta.yaml`.
 - `kytoon/solvers/l1_tether.py` — L1 tier (optional): tether as an inverted
   mooring line in air via MoorPy (`System(rho=1.225)`, wind as current).
   Returns `L1TetherReport` (drag/sag line shape, true elevation angles,

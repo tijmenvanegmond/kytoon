@@ -64,6 +64,8 @@ kytoon/solvers/l1_aero.py  L1 aero: parametric C-arc LEI wing from the spec's
                         extra; everything else runs without it.
 kytoon/solvers/l1_tether.py  L1 tether: MoorPy quasi-static line in air
                         (drag + sag + true elevation). Also `l1` extra.
+kytoon/solvers/l1_body_aero.py  L1 hybrid aero: Mk II/V wing+body through
+                        AeroSandbox AeroBuildup — bounds, not benchmarks.
 kytoon/aero.py          TU Delft V3 benchmark loader + system-polar model.
 kytoon/report.py        CLI: python -m kytoon.report specs/ -o reports/l0.md
 kytoon/viz.py           CLI: python -m kytoon.viz specs/ -o reports/figures
@@ -136,7 +138,8 @@ consciously replace them (and update this file + tests):
 
 `tests/test_l0.py` (15) + `tests/test_l1_aero.py` (11) +
 `tests/test_l1_tether.py` (8) + `tests/test_viz.py` (6) +
-`tests/test_geometry.py` (10) — all passing at last compile. Categories:
+`tests/test_geometry.py` (10) + `tests/test_l1_body_aero.py` (8) — all
+passing at last compile. Categories:
 
 - **Physics anchors** (must never change without a source): He net-lift
   constant; torus volume closed form; wrinkle-moment reference case
@@ -200,10 +203,19 @@ legitimately lower per m² and not comparable to AWE traction figures.
   dynamic keep-out volume. Unresolved, lives with the ship design.
 - **Mk V «Manta» covers the requirement alone (2026-07-08)**: 648 m³
   prolate hull + 130 m² side deltas → +469 kg net static, 0–26.1 m/s
-  tether-limited at L0. If its unbenchmarked aero survives an L1 study
-  (hull-interference — same open problem as Mk II, task 5), the two-kytoon
-  carriage becomes optional for ISR/recovery missions. Decision pending
-  that study; the fleet gates keep both stories true meanwhile.
+  tether-limited at L0.
+- **Body-interference study bounds the Mk II/V coefficients (2026-07-11,
+  task 5)**: AeroSandbox AeroBuildup (rigid smooth bodies — a lower drag
+  bound). Mk V: cl_op 0.65 at α≈7°, L1 system cd 0.059 vs the hand-picked
+  0.18 (spec is very conservative); resultant ratio 0.97. **The
+  single-kytoon claim holds at BOTH bounds** (v_max 26.1 spec / 26.6 L1,
+  gated in tests). Mk II: cl_op 0.6 at α≈9°, resultant ratio 0.93 —
+  consistent, though wake blanketing is not modeled (CL upper bound). The
+  big cd disagreements mostly move L/D and hence tether elevation, not the
+  envelope, because cl dominates the resultant. Two-kytoon carriage is now
+  formally optional for ISR/recovery per L1 bounds; the traction role
+  (launch boost, 28 kN-class tow) still needs Mk I/III. Certifying (not
+  bounding) the hybrids needs real hybrid-aerostat data or L2 CFD.
 - **Mk I's spec implies a flatter arc than the V3 (2026-07-08)**: the
   44 m developed LE-tube length on a 38 m span pins the C-arc at
   height/span ≈ 0.25 vs the V3's 0.376. `ArcWing.from_spec` now derives
@@ -261,11 +273,12 @@ legitimately lower per m² and not comparable to AWE traction figures.
    Mk I strut count/span/AR, Mk III spar callout (Ø0.8 m @ 0.6 bar) and
    5-fixture rail all synced to `reports/l0.md`. Re-sync whenever the solver
    numbers move — the sheet now cites REV B provenance in its footer.
-5. **Mk II + Mk V body-interference aero**: no benchmark exists for
-   lobe+wing or hull+wing; either find hybrid-aerostat data or schedule an
-   L1 VLM/panel study with the envelope modeled as a body. This study now
-   also decides the Mk V single-kytoon question (§6) — highest-leverage
-   open item.
+5. ~~**Mk II + Mk V body-interference aero**~~ — v1 DONE 2026-07-11:
+   `kytoon/solvers/l1_body_aero.py` (AeroSandbox AeroBuildup, wing + body
+   of revolution, bridle drag added). Outcome in §6: Mk V's single-kytoon
+   claim holds at both bounds; Mk II consistent on resultant. Remaining to
+   *certify* rather than bound: hybrid-aerostat benchmark data (none found
+   vendorable yet) or the L2 CFD tier; lobe wake blanketing unmodeled.
 6. ~~**Geometry kernel**~~ — v1 DONE 2026-07-08: `kytoon/geometry.py`
    realizes each spec as a trimesh scene (closed meshes for pressurized
    volumes, open surfaces for soft goods) → `models/*.glb|stl`. Mesh
