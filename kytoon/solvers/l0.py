@@ -234,6 +234,16 @@ def solve_wind_envelope(spec: KytoonSpec) -> WindEnvelope:
             2 * spec.tether.wll_n / (RHO_AIR * cd_blimp * frontal)
         )
 
+    # pressurized-envelope dent: past q ≈ superpressure, the stagnation
+    # point pushes the envelope in and it loses shape. Lobe/hull use the
+    # same 500 Pa gust superpressure as their hoop check; torus its spec
+    # pressure. Wings-only archetypes have no such surface.
+    if spec.lobe is not None or spec.hull is not None:
+        limits["envelope dent"] = math.sqrt(2 * 500 / RHO_AIR)
+    elif spec.torus is not None:
+        limits["envelope dent"] = math.sqrt(
+            2 * spec.torus.pressure_bar * 1e5 / RHO_AIR)
+
     limiter = min(limits, key=limits.get)  # type: ignore[arg-type]
     v_max = limits[limiter]
 

@@ -8,13 +8,19 @@ notes: >
   class — commonality). The line was the binding envelope limit at 19.2 m/s
   while the canopy fabric ceiling sits at ~48; the upgrade costs 20 kg of
   net lift and raises the ceiling to 25.9 m/s (Mk V parity).
-canopy:                # delta keel wing under the lobe
-  area: 250.0
-  span: 24.0
+  2026-07-11 v2: the single 250 m² under-lobe keel sheet was structurally
+  unsupportable (nothing holds a fabric TE that size). Replaced by two
+  44 m² side deltas rooted on the lobe equator — smaller wing, but in
+  cleaner side flow (cl_op up-rated wake-wise, cd_op now lobe-dominated).
+  Ceiling is now the lobe dent limit (q > 500 Pa superpressure), not the
+  tether.
+canopy:                # two side delta wings, total projected
+  area: 88.0
+  span: 28.6           # tip-to-tip incl. Ø14 lobe (root at 0.9·R)
   areal_density: 0.15
-  cl_op: 0.6           # lobe-wake degraded
-  cl_max: 0.8
-  cd_op: 0.25          # bluff lobe dominates drag
+  cl_op: 0.55          # side flow, less blanketing than under-keel
+  cl_max: 0.9
+  cd_op: 0.30          # bluff lobe dominates on the smaller reference area
   twin_skin: false
 lobe:
   diameter: 14.0

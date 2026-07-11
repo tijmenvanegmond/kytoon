@@ -81,11 +81,12 @@ def test_hull_mesh_volume_matches_spec(specs, scenes):
 
 
 @needs_trimesh
-def test_mk5_wing_mesh_area_matches_spec(specs, scenes):
+@pytest.mark.parametrize("mk", ["II", "V"])
+def test_side_delta_mesh_area_matches_spec(specs, scenes, mk):
     """Two side deltas together carry the spec's projected wing area."""
-    total = (scenes["V"].geometry["wing_stbd"].area
-             + scenes["V"].geometry["wing_port"].area)
-    assert total == pytest.approx(specs["V"].canopy.area, rel=0.02)
+    total = (scenes[mk].geometry["wing_stbd"].area
+             + scenes[mk].geometry["wing_port"].area)
+    assert total == pytest.approx(specs[mk].canopy.area, rel=0.02)
 
 
 @needs_trimesh

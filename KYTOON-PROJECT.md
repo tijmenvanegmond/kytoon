@@ -29,7 +29,7 @@ log (`kiteship-project-log.md`). This repo owns the *numbers*.
 | Mk | Name | Archetype | Role | Key mechanism |
 |----|------|-----------|------|---------------|
 | I | Sled | `lei` | launch boost + traction | C-shape LEI, He in LE tube + 8 struts |
-| II | Helikite | `helikite` | zero-wind ISR loiter | oblate He lobe + delta keel wing |
+| II | Helikite | `helikite` | zero-wind ISR loiter | oblate He lobe + 2 braced side deltas (v2) |
 | III | Spine | `spine` | boost + drone perch/recharge | inflatable keel spar carrying grapple rail + 300 kg dock |
 | IV | Torus | `torus` | calm-air recovery node | He ring, capture line through central duct |
 | V | Manta | `blimp` | single-kytoon challenger | prolate He hull + two side delta wings |
@@ -112,8 +112,11 @@ consciously replace them (and update this file + tests):
    factor with mem4py membrane FEM.
 4. **Wind envelope**: v_min from static-lift deficit at cl_op with vertical
    fraction cos(90° − tether elevation); v_max = min(tether WLL, wrinkle
-   margin found by bisection on tow force, canopy fabric limit). Quasi-static
-   only — **no gust cases, no crosswind maneuvers, no dynamic loads.**
+   margin found by bisection on tow force, canopy fabric limit, envelope
+   dent). The dent limit (added 2026-07-11): a pressurized envelope loses
+   shape once q exceeds its superpressure — lobe/hull use the assumed
+   500 Pa (→ 28.6 m/s), torus its spec 2000 Pa. Quasi-static only —
+   **no gust cases, no crosswind maneuvers, no dynamic loads.**
 5. **Tether**: straight line; mass counted, drag and sag NOT integrated
    at L0. Torus v_max uses bluff-body drag (Cd 0.5 × ring frontal area)
    against tether WLL. The L1 correction exists (`l1_tether.py`, MoorPy);
@@ -136,9 +139,9 @@ consciously replace them (and update this file + tests):
 
 ## 4. The test suite is a contract
 
-`tests/test_l0.py` (15) + `tests/test_l1_aero.py` (11) +
+`tests/test_l0.py` (16) + `tests/test_l1_aero.py` (11) +
 `tests/test_l1_tether.py` (8) + `tests/test_viz.py` (6) +
-`tests/test_geometry.py` (10) + `tests/test_l1_body_aero.py` (8) — all
+`tests/test_geometry.py` (11) + `tests/test_l1_body_aero.py` (8) — all
 passing at last compile. Categories:
 
 - **Physics anchors** (must never change without a source): He net-lift
@@ -211,6 +214,25 @@ legitimately lower per m² and not comparable to AWE traction figures.
   for 20 kg of net lift (534 → 478 incl. tether). Spec + iteration sheet
   (REV C) updated. Next binding limit is still the tether; going past
   ~29 m/s (18 mm) costs commonality and lift for little ISR value.
+- **Mk IV's headline ceiling is a tension number, not a mission number
+  (2026-07-11)**: with no wing, fixed buoyancy fights v²-growing drag —
+  L1 tether blow-down: 83° elevation / 398 m altitude at 5 m/s degrades to
+  44°/280 m at 15 and 20°/136 m at 25. Its *useful* envelope (elevation
+  ≥ 45°, capture line workable) is ≈ 0–14 m/s, not the 0–44 the L0 table
+  suggests. Mk II v2 holds ≥ 64°/360 m through 25 m/s because wing lift
+  grows with q. Candidate improvement: add a "mission ceiling"
+  (elevation-floor) metric to the envelope solve so the comparison table
+  stops flattering drag-only aerostats.
+- **Mk II v2: side deltas replace the under-lobe keel sheet (2026-07-11,
+  REV D)**: a single 250 m² unsupported fabric surface under the lobe
+  cannot hold shape — no load path to its trailing edge. Replaced with two
+  44 m² deltas rooted on the lobe equator with tip stays (same config
+  family as Mk V). Smaller wing in cleaner side flow: cl_op 0.55 /
+  cd_op 0.30 on 88 m². Net static rose to +558 kg (less canopy mass);
+  ceiling is now the **lobe dent limit 28.6 m/s** — an airframe limit,
+  not the line — making Mk II the highest-ceiling buoyant kytoon. Tow
+  fell to 4.9 kN @ 12 m/s (irrelevant to the ISR role). AeroBuildup
+  bounds the new coefficients at resultant ratio 0.88.
 - **Body-interference study bounds the Mk II/V coefficients (2026-07-11,
   task 5)**: AeroSandbox AeroBuildup (rigid smooth bodies — a lower drag
   bound). Mk V: cl_op 0.65 at α≈7°, L1 system cd 0.059 vs the hand-picked

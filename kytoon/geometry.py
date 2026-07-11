@@ -203,57 +203,39 @@ def build(spec: KytoonSpec) -> "trimesh.Scene":
                 geom_name="spar")
 
     if spec.lobe is not None:
-        # layout (matches the iteration sheet's side view): delta keel wing
-        # plane at z=0, lobe seated over its mid-chord, pod slung below.
-        c_root = (2 * spec.canopy.area / spec.canopy.span
-                  if spec.canopy is not None else spec.lobe.diameter)
-
+        # v2 layout: two side deltas rooted on the lobe equator (a single
+        # under-lobe fabric sheet cannot hold shape), pod slung below.
+        a, cz = spec.lobe.diameter / 2, spec.lobe.height / 2
         lobe = trimesh.creation.icosphere(subdivisions=4)
-        lobe.apply_scale([spec.lobe.diameter / 2, spec.lobe.diameter / 2,
-                          spec.lobe.height / 2])
-        lobe.apply_translation([0.45 * c_root, 0.0,
-                                spec.lobe.height / 2 + 0.5])
+        lobe.apply_scale([a, a, cz])
         scene.add_geometry(lobe, geom_name="lobe")
 
         if spec.canopy is not None:
-            # swept delta, area = ½·c_root·span; shallow center fold (the
-            # "keel") so it reads as a surface with dihedral, not a sticker.
-            # projected area is preserved: the fold point only moves in z.
-            b2 = spec.canopy.span / 2
-            verts = [
-                [0.0, 0.0, 0.0],            # apex, forward
-                [c_root, -b2, 1.2],         # tip, slight upsweep
-                [c_root, b2, 1.2],
-                [0.85 * c_root, 0.0, -1.5],  # keel fold, below centerline
-            ]
-            wing = trimesh.Trimesh(
-                vertices=verts, faces=[[0, 1, 3], [0, 3, 2], [1, 2, 3]],
-                process=False)
-            scene.add_geometry(wing, geom_name="keel_wing")
+            y_root = 0.9 * a
+            half_span = spec.canopy.span / 2 - y_root
+            root = spec.canopy.area / half_span   # 2 wings: ½·c·h each
+            x0 = -root / 2
+            for side, sgn in (("stbd", 1.0), ("port", -1.0)):
+                tip = [x0 + 0.75 * root, sgn * spec.canopy.span / 2, 0.6]
+                wing = trimesh.Trimesh(
+                    vertices=[
+                        [x0, sgn * y_root, 0.0],
+                        [x0 + root, sgn * y_root, 0.0],
+                        tip,
+                    ],
+                    faces=[[0, 1, 2]], process=False)
+                scene.add_geometry(wing, geom_name=f"wing_{side}")
+                # stay: lobe upper surface → wing tip (bracing the panel)
+                lp = np.array([0.0, sgn * 0.55 * a, 0.75 * cz])
+                scene.add_geometry(
+                    _tube_between(lp, np.array(tip), 0.06),
+                    geom_name=f"stay_{side}")
 
-        # rigging: lobe underside tied to the wing's corners and keel fold
-        # (visual/interface geometry only — mass lives in rigging_mass)
-        lc = np.array([0.45 * c_root, 0.0, spec.lobe.height / 2 + 0.5])
-        a, cz = spec.lobe.diameter / 2, spec.lobe.height / 2
-        anchors = [np.array(v) for v in (
-            [0.0, 0.0, 0.0],
-            [c_root, -spec.canopy.span / 2, 1.2],
-            [c_root, spec.canopy.span / 2, 1.2],
-            [0.85 * c_root, 0.0, -1.5],
-        )]
-        for k, p in enumerate(anchors):
-            d = p - lc
-            # start on the lobe surface along the line to the anchor
-            t = 1.0 / math.sqrt((d[0] / a) ** 2 + (d[1] / a) ** 2
-                                + (d[2] / cz) ** 2)
-            scene.add_geometry(_tube_between(lc + t * d, p, 0.06),
-                               geom_name=f"rigging_{k}")
-
-        # gimbaled EO/IR pod (spec payload), hung under the keel
+        # gimbaled EO/IR pod (spec payload), hung under the lobe
         pod = trimesh.creation.capsule(radius=0.45, height=1.1)
         pod.apply_transform(
             trimesh.transformations.rotation_matrix(math.pi / 2, [0, 1, 0]))
-        pod.apply_translation([0.55 * c_root, 0.0, -3.2])
+        pod.apply_translation([0.0, 0.0, -cz - 1.0])
         scene.add_geometry(pod, geom_name="pod")
 
     if spec.hull is not None:

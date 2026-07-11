@@ -82,6 +82,16 @@ def test_mk1_tow_force_magnitude(specs):
     assert 20 < env.tow_force_at_12ms_kn < 60
 
 
+def test_envelope_dent_limiter(specs):
+    """Pressurized envelopes lose shape once q exceeds superpressure:
+    v_dent = sqrt(2·500/ρ) ≈ 28.6 m/s at the assumed 500 Pa. Binds Mk II
+    (side-wing v2); must NOT bind the 2000 Pa torus (57 m/s > its 44)."""
+    env2 = solve_wind_envelope(specs["II"])
+    assert env2.v_max_limiter == "envelope dent"
+    assert env2.v_max_ms == pytest.approx(28.6, abs=0.1)
+    assert solve_wind_envelope(specs["IV"]).v_max_limiter != "envelope dent"
+
+
 def test_mk5_single_kytoon_coverage(specs):
     """Mk V's competing claim: one winged blimp covers the whole 0–20+ m/s
     requirement alone (challenges the two-kytoon carriage logic)."""

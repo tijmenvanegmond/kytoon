@@ -89,22 +89,24 @@ def build_airplane(spec: KytoonSpec) -> "asb.Airplane":
         body = _revolution_body("hull", spec.hull.length, hr)
 
     elif spec.archetype == Archetype.HELIKITE:
-        # delta keel wing under an equivalent-frontal-area revolution body
-        c_root = 2 * spec.canopy.area / spec.canopy.span
-        z_wing = -(spec.lobe.height / 2 + 0.5)
+        # v2: two side deltas rooted on the lobe equator (mirrors
+        # kytoon.geometry), lobe as an equivalent-frontal revolution body
+        y_root = 0.9 * spec.lobe.diameter / 2
+        half_span = spec.canopy.span / 2 - y_root
+        root = spec.canopy.area / half_span
         wing = asb.Wing(
-            name="keel wing", symmetric=True,
+            name="side deltas", symmetric=True,
             xsecs=[
-                asb.WingXSec(xyz_le=[0, 0, z_wing], chord=c_root, airfoil=af),
+                asb.WingXSec(xyz_le=[-root / 2, y_root, 0],
+                             chord=root, airfoil=af),
                 asb.WingXSec(
-                    xyz_le=[0.98 * c_root, spec.canopy.span / 2, z_wing],
-                    chord=0.02 * c_root, airfoil=af),
+                    xyz_le=[-root / 2 + 0.75 * root, spec.canopy.span / 2, 0.6],
+                    chord=0.02 * root, airfoil=af),
             ],
         )
         r_eq = math.sqrt(spec.lobe.diameter / 2 * spec.lobe.height / 2)
         body = _revolution_body("lobe (equiv. revolution)",
-                                spec.lobe.diameter, r_eq,
-                                center=(0.45 * c_root, 0, 0))
+                                spec.lobe.diameter, r_eq)
     else:
         raise ValueError(
             f"{spec.name}: {spec.archetype.value} is not a body+wing hybrid "
@@ -168,9 +170,9 @@ def solve(spec: KytoonSpec, alphas: np.ndarray | None = None,
         flags.append("rigid smooth hull assumed — body drag is a lower "
                      "bound for a soft envelope")
     if spec.archetype == Archetype.HELIKITE:
-        flags.append("lobe wake blanketing of the keel wing NOT captured — "
-                     "CL is an upper bound; oblate lobe approximated as a "
-                     "revolution body (frontal area matched)")
+        flags.append("lobe interference on the side wings only partially "
+                     "captured (equivalent revolution body); wake "
+                     "blanketing unmodeled — CL is an upper bound")
     flags.append("AeroBuildup is semi-empirical, not benchmark-anchored — "
                  "bounds the spec coefficients, does not certify them")
 

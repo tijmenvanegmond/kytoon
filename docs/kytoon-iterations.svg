@@ -12,8 +12,8 @@
 
   <text x="60" y="70" fill="#eef4f8" font-size="16" font-weight="bold" letter-spacing="3">KYTOON ITERATIONS — MK I → MK IV</text>
   <text x="60" y="92" fill="#8fb0c4" font-size="11">Common interfaces: tether termination + load cell · grapple fixture (LE underside) · IMU/GNSS + He pressure telemetry · capture-line hardpoint</text>
-  <text x="1180" y="70" fill="#8fb0c4" font-size="11">DWG KS-40-KY-002 · REV C</text>
-  <text x="620" y="1018" fill="#5f8299" font-size="9">REV B — numbers synced to kytoon-sim L0 solver (reports/l0.md) · REV C — Mk II tether 12→16 mm (envelope 0–25.9 m/s); Mk V «Manta» exists in specs, panel pending</text>
+  <text x="1180" y="70" fill="#8fb0c4" font-size="11">DWG KS-40-KY-002 · REV D</text>
+  <text x="620" y="1018" fill="#5f8299" font-size="9">REV B — numbers synced to kytoon-sim L0 solver (reports/l0.md) · REV C — Mk II tether 12→16 mm · REV D — Mk II v2: two braced side deltas (88 m²), dent-limited 0–28.6 m/s; sketch pending; Mk V «Manta» panel pending</text>
 
   <!-- legend -->
   <g transform="translate(830,84)">
@@ -99,8 +99,8 @@
     </g>
 
     <g transform="translate(390,52)" fill="#c8d8e4" font-size="10">
-      <text y="14">· Oblate He lobe + delta keel wing</text>
-      <text y="34">· 718 m³ He → <tspan fill="#9fe0ff">+534 kg static lift</tspan></text>
+      <text y="14">· Oblate He lobe + 2 braced side deltas</text>
+      <text y="34">· 718 m³ He → <tspan fill="#9fe0ff">+558 kg static lift</tspan></text>
       <text y="54">· Flies at 0 m/s wind: true all-weather ISR</text>
       <text y="74">· Wing adds dynamic lift + heading stability</text>
       <text y="94">· Low L/D — poor traction, no launch boost</text>
@@ -239,10 +239,10 @@
       <text x="330" y="160">1× fixture, LE center</text>
       <text x="330" y="188">Boost + traction</text>
 
-      <text x="580" y="48">250 m² / 718 m³</text>
-      <text x="580" y="76">+534 kg</text>
-      <text x="580" y="104">0–25.9 m/s (tether WLL)</text>
-      <text x="580" y="132">★ / 14.3 kN @ 12 m/s</text>
+      <text x="580" y="48">88 m² / 718 m³</text>
+      <text x="580" y="76">+558 kg</text>
+      <text x="580" y="104">0–28.6 m/s (envelope dent)</text>
+      <text x="580" y="132">★ / 4.9 kN @ 12 m/s</text>
       <text x="580" y="160">1× fixture, keel</text>
       <text x="580" y="188">Persistent ISR</text>
 
