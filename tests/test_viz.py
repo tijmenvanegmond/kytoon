@@ -59,3 +59,10 @@ def test_tether_figure_builds(reports, tmp_path):
     fig = viz.fig_tether_profiles(spec, winds=(4.0, 12.0))
     assert len(fig.axes[0].lines) >= 3              # 2 winds + spec chord
     _saves(fig, tmp_path, "tether.png")
+
+
+def test_fleet_geometry_figure_builds(reports, tmp_path):
+    pytest.importorskip("trimesh")
+    fig = viz.fig_fleet_geometry([r.spec for r in reports])
+    assert len(fig.axes) == len(reports)            # one panel per Mk
+    _saves(fig, tmp_path, "geometry.png")

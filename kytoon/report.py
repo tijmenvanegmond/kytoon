@@ -62,8 +62,9 @@ def structure_detail(report: L0Report) -> str:
 
 
 def full_report(reports: list[L0Report]) -> str:
+    mks = [r.spec.mk for r in reports]
     parts = [
-        "# Kytoon L0 Analysis — Mk I–IV",
+        f"# Kytoon L0 Analysis — Mk {mks[0]}–{mks[-1]}",
         "",
         "Closed-form layer: Archimedes buoyancy, pressurized-beam wrinkle "
         "margins, quasi-static wind envelope. All numbers ISA sea level; "

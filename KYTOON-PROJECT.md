@@ -32,11 +32,18 @@ log (`kiteship-project-log.md`). This repo owns the *numbers*.
 | II | Helikite | `helikite` | zero-wind ISR loiter | oblate He lobe + delta keel wing |
 | III | Spine | `spine` | boost + drone perch/recharge | inflatable keel spar carrying grapple rail + 300 kg dock |
 | IV | Torus | `torus` | calm-air recovery node | He ring, capture line through central duct |
+| V | Manta | `blimp` | single-kytoon challenger | prolate He hull + two side delta wings |
 
-**Fleet logic (load-bearing design decision):** no single Mk covers the
-operational wind range. The ship carries two kytoon types — a buoyant one
-(II or IV, v_min = 0) plus a traction one (I or III). The test
-`test_fleet_covers_zero_to_20ms` encodes this as a hard requirement.
+**Fleet logic (load-bearing design decision, now CHALLENGED):** the
+original logic — no single Mk covers the operational wind range, so the
+ship carries a buoyant type (II/IV) plus a traction type (I/III) — is
+encoded in `test_fleet_covers_zero_to_20ms`. **Mk V (added 2026-07-08)
+solves 0–26.1 m/s alone at L0** (`test_mk5_single_kytoon_coverage`),
+which would collapse the two-kytoon carriage to one airframe. Caveats
+before believing it: Mk V's cl_op 0.65 / cd_op 0.18 are hand-picked and
+NOT benchmark-covered (§3.7-class uncertainty); hull structure is
+hoop-only; low tow force (7.7 kN @ 12 m/s) means weak launch boost — it
+challenges Mk II/IV's slot, not the traction role.
 **Common interfaces across all Mks** (do not fork per-Mk): tether
 termination + load cell, grapple fixture geometry, IMU/GNSS + He telemetry,
 capture-line hardpoint.
@@ -127,9 +134,9 @@ consciously replace them (and update this file + tests):
 
 ## 4. The test suite is a contract
 
-`tests/test_l0.py` (14) + `tests/test_l1_aero.py` (11) +
-`tests/test_l1_tether.py` (8) + `tests/test_viz.py` (5) +
-`tests/test_geometry.py` (8) — all passing at last compile. Categories:
+`tests/test_l0.py` (15) + `tests/test_l1_aero.py` (11) +
+`tests/test_l1_tether.py` (8) + `tests/test_viz.py` (6) +
+`tests/test_geometry.py` (10) — all passing at last compile. Categories:
 
 - **Physics anchors** (must never change without a source): He net-lift
   constant; torus volume closed form; wrinkle-moment reference case
@@ -191,6 +198,12 @@ legitimately lower per m² and not comparable to AWE traction figures.
 - **Drawing-level finding**: the arm's 15 m reach envelope overlaps the
   tether traveller zone — arm motion planning must treat the tether as a
   dynamic keep-out volume. Unresolved, lives with the ship design.
+- **Mk V «Manta» covers the requirement alone (2026-07-08)**: 648 m³
+  prolate hull + 130 m² side deltas → +469 kg net static, 0–26.1 m/s
+  tether-limited at L0. If its unbenchmarked aero survives an L1 study
+  (hull-interference — same open problem as Mk II, task 5), the two-kytoon
+  carriage becomes optional for ISR/recovery missions. Decision pending
+  that study; the fleet gates keep both stories true meanwhile.
 - **Mk I's spec implies a flatter arc than the V3 (2026-07-08)**: the
   44 m developed LE-tube length on a 38 m span pins the C-arc at
   height/span ≈ 0.25 vs the V3's 0.376. `ArcWing.from_spec` now derives
@@ -248,8 +261,11 @@ legitimately lower per m² and not comparable to AWE traction figures.
    Mk I strut count/span/AR, Mk III spar callout (Ø0.8 m @ 0.6 bar) and
    5-fixture rail all synced to `reports/l0.md`. Re-sync whenever the solver
    numbers move — the sheet now cites REV B provenance in its footer.
-5. **Mk II aero**: no benchmark exists for lobe+wing; either find aerostat
-   hybrid data or schedule an L1 VLM study with the lobe modeled as a body.
+5. **Mk II + Mk V body-interference aero**: no benchmark exists for
+   lobe+wing or hull+wing; either find hybrid-aerostat data or schedule an
+   L1 VLM/panel study with the envelope modeled as a body. This study now
+   also decides the Mk V single-kytoon question (§6) — highest-leverage
+   open item.
 6. ~~**Geometry kernel**~~ — v1 DONE 2026-07-08: `kytoon/geometry.py`
    realizes each spec as a trimesh scene (closed meshes for pressurized
    volumes, open surfaces for soft goods) → `models/*.glb|stl`. Mesh
