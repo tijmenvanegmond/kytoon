@@ -231,6 +231,24 @@ def build(spec: KytoonSpec) -> "trimesh.Scene":
                 process=False)
             scene.add_geometry(wing, geom_name="keel_wing")
 
+        # rigging: lobe underside tied to the wing's corners and keel fold
+        # (visual/interface geometry only — mass lives in rigging_mass)
+        lc = np.array([0.45 * c_root, 0.0, spec.lobe.height / 2 + 0.5])
+        a, cz = spec.lobe.diameter / 2, spec.lobe.height / 2
+        anchors = [np.array(v) for v in (
+            [0.0, 0.0, 0.0],
+            [c_root, -spec.canopy.span / 2, 1.2],
+            [c_root, spec.canopy.span / 2, 1.2],
+            [0.85 * c_root, 0.0, -1.5],
+        )]
+        for k, p in enumerate(anchors):
+            d = p - lc
+            # start on the lobe surface along the line to the anchor
+            t = 1.0 / math.sqrt((d[0] / a) ** 2 + (d[1] / a) ** 2
+                                + (d[2] / cz) ** 2)
+            scene.add_geometry(_tube_between(lc + t * d, p, 0.06),
+                               geom_name=f"rigging_{k}")
+
         # gimbaled EO/IR pod (spec payload), hung under the keel
         pod = trimesh.creation.capsule(radius=0.45, height=1.1)
         pod.apply_transform(

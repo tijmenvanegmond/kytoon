@@ -12,8 +12,8 @@
 
   <text x="60" y="70" fill="#eef4f8" font-size="16" font-weight="bold" letter-spacing="3">KYTOON ITERATIONS — MK I → MK IV</text>
   <text x="60" y="92" fill="#8fb0c4" font-size="11">Common interfaces: tether termination + load cell · grapple fixture (LE underside) · IMU/GNSS + He pressure telemetry · capture-line hardpoint</text>
-  <text x="1180" y="70" fill="#8fb0c4" font-size="11">DWG KS-40-KY-002 · REV B</text>
-  <text x="1080" y="1018" fill="#5f8299" font-size="9">REV B — numbers synced to kytoon-sim L0 solver (reports/l0.md)</text>
+  <text x="1180" y="70" fill="#8fb0c4" font-size="11">DWG KS-40-KY-002 · REV C</text>
+  <text x="620" y="1018" fill="#5f8299" font-size="9">REV B — numbers synced to kytoon-sim L0 solver (reports/l0.md) · REV C — Mk II tether 12→16 mm (envelope 0–25.9 m/s); Mk V «Manta» exists in specs, panel pending</text>
 
   <!-- legend -->
   <g transform="translate(830,84)">
@@ -241,7 +241,7 @@
 
       <text x="580" y="48">250 m² / 718 m³</text>
       <text x="580" y="76">+534 kg</text>
-      <text x="580" y="104">0–19.2 m/s (tether WLL)</text>
+      <text x="580" y="104">0–25.9 m/s (tether WLL)</text>
       <text x="580" y="132">★ / 14.3 kN @ 12 m/s</text>
       <text x="580" y="160">1× fixture, keel</text>
       <text x="580" y="188">Persistent ISR</text>

@@ -4,6 +4,10 @@ archetype: helikite
 notes: >
   Buoyancy-dominant ISR loiterer. Oblate He lobe + delta keel wing.
   Flies at zero wind; poor traction by design.
+  2026-07-11 design iteration: tether upgraded 12→16 mm (Mk III's line
+  class — commonality). The line was the binding envelope limit at 19.2 m/s
+  while the canopy fabric ceiling sits at ~48; the upgrade costs 20 kg of
+  net lift and raises the ceiling to 25.9 m/s (Mk V parity).
 canopy:                # delta keel wing under the lobe
   area: 250.0
   span: 24.0
@@ -18,9 +22,9 @@ lobe:
   fabric_areal_density: 0.20
 tether:
   length: 400
-  diameter_mm: 12
-  linear_density: 0.09
-  mbl_kn: 110
+  diameter_mm: 16      # Mk III line class (common winch/termination)
+  linear_density: 0.14
+  mbl_kn: 200
   safety_factor: 3.0
   elevation_deg: 55    # steeper — buoyant systems ride higher
 bridle:

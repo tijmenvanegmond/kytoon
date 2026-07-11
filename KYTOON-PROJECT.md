@@ -204,6 +204,13 @@ legitimately lower per m² and not comparable to AWE traction figures.
 - **Mk V «Manta» covers the requirement alone (2026-07-08)**: 648 m³
   prolate hull + 130 m² side deltas → +469 kg net static, 0–26.1 m/s
   tether-limited at L0.
+- **Mk II design iteration: tether was the binding limit (2026-07-11)**:
+  the 12 mm/110 kN line capped the envelope at 19.2 m/s while the canopy
+  fabric ceiling sits at ~48. Upgraded to Mk III's 16 mm/200 kN class
+  (winch/termination commonality): envelope now 0–25.9 m/s (Mk V parity)
+  for 20 kg of net lift (534 → 478 incl. tether). Spec + iteration sheet
+  (REV C) updated. Next binding limit is still the tether; going past
+  ~29 m/s (18 mm) costs commonality and lift for little ISR value.
 - **Body-interference study bounds the Mk II/V coefficients (2026-07-11,
   task 5)**: AeroSandbox AeroBuildup (rigid smooth bodies — a lower drag
   bound). Mk V: cl_op 0.65 at α≈7°, L1 system cd 0.059 vs the hand-picked
