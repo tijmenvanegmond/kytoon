@@ -111,6 +111,38 @@ def test_mk2_wing_only_is_flagged(specs):
     assert any("lobe" in f for f in rep.flags)
 
 
+# --- Mk V fat wing (2026-07-11 pivot: solves here via VSM, not body-aero) -----
+
+@pytest.fixture(scope="module")
+def mk5_report(specs):
+    return solve(specs["V"], n_panels=30)
+
+
+@needs_vsm
+def test_mk5_fatwing_reaches_operating_cl(mk5_report):
+    assert mk5_report.op_alpha is not None
+    assert mk5_report.op_alpha < 15
+
+
+@needs_vsm
+def test_mk5_fatwing_resultant_band(mk5_report):
+    assert 0.8 < mk5_report.cr_ratio < 1.2
+
+
+@needs_vsm
+def test_mk5_breukels_extrapolation_flagged(mk5_report):
+    """t/c 0.28 is beyond the LEI regression fit range — must be flagged."""
+    assert any("extrapolated" in f for f in mk5_report.flags)
+
+
+@needs_vsm
+def test_mk5_coverage_claim_holds_at_both_bounds(mk5_report, specs):
+    """Single-kytoon claim (v_max > 20) at both the spec cr and the VSM cr."""
+    from kytoon.solvers.l1_body_aero import v_max_tether_with
+    assert v_max_tether_with(specs["V"], mk5_report.cr_op_spec) > 20
+    assert v_max_tether_with(specs["V"], mk5_report.cr_op_l1) > 20
+
+
 @needs_vsm
 def test_mk3_twin_skin_is_flagged(specs):
     rep = solve(specs["III"], n_panels=20, alphas=np.array([5.0]))

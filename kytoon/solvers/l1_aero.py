@@ -116,10 +116,16 @@ def solve(spec: KytoonSpec, n_panels: int = 40,
         raise ValueError(f"{spec.name}: pure aerostat, no wing — L1 aero n/a")
     if spec.archetype == Archetype.BLIMP:
         raise ValueError(
-            f"{spec.name}: side delta wings are not a C-arc — needs a "
-            "hull+wing panel model (task queue: Mk II/V body-interference "
-            "aero study)"
+            f"{spec.name}: side delta wings are not a C-arc — "
+            "use l1_body_aero for the blimp alternate"
         )
+    if spec.fat_wing is not None:
+        t = spec.fat_wing.thickness_ratio
+        if t > 0.25:
+            flags.append(
+                f"fat section t/c={t:.2f} is beyond the Breukels LEI "
+                "regression fit range — section polar extrapolated"
+            )
     if spec.archetype == Archetype.HELIKITE:
         flags.append(
             "lobe interference NOT modeled — wing-only polar; do not feed "

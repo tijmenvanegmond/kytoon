@@ -1,33 +1,44 @@
 name: "Mk V «Manta»"
 mk: "V"
-archetype: blimp
+archetype: fatwing
 notes: >
-  Competing design (2026-07-08): prolate He hull with two side delta wings —
-  a winged blimp challenging the two-kytoon carriage logic. Calm-air capable
-  like Mk II/IV but with real wings for envelope reach. Aero coefficients
-  are hand-picked (hull drag folded into cd_op) and NOT benchmark-covered;
-  hull structural check is hoop-only at L0, same known lie as the Mk II lobe.
-hull:
-  length: 22.0
-  diameter: 7.5
-  fabric_areal_density: 0.20
-canopy:                # both side wings, total projected
-  area: 130.0
-  span: 27.5           # tip-to-tip incl. 7.5 m hull
-  areal_density: 0.15
-  cl_op: 0.65          # side wings + hull body lift, hull wake degraded
-  cl_max: 0.9
-  cd_op: 0.18          # includes hull bluff drag
-  twin_skin: false
+  v2 (2026-07-11): pivot from winged blimp to a lofted fat wing — a manta:
+  closed airfoil sections lofted along a tapering span (fat 13.3 m center
+  chord thinning to 35% at the tips, t/c 0.28, quarter-chord swept 15°),
+  one pressurized body split into 5 chordwise cells. The wing IS the
+  buoyant volume and the bending structure; no envelope dent limit (cells
+  run 0.1 bar, two decades above q at any flyable wind). Three tether
+  attachments: main load line at mid-span plus two outboard control lines
+  (roll/pitch trim — bridle positions double as their stations). Regains
+  real traction (≈18 kN @ 12 m/s) while staying calm-air capable: it
+  challenges BOTH fleet slots. Aero coefficients hand-picked; Breukels
+  section fit is extrapolated at t/c 0.28 — flagged at L1.
+fat_wing:
+  span: 32.0
+  chord: 13.3          # CENTER chord — manta planform, fat in the middle
+  taper: 0.35          # tip/center chord: thin at the wingtips
+  thickness_ratio: 0.28
+  n_cells: 5           # chordwise cells; web pitch sets the hoop bulge
+  pressure_bar: 0.10
+  fabric_areal_density: 0.20        # reinforced laminate w/ load tapes
+  fabric_strength_n_per_m: 120000
+canopy:                # aero coefficients live here; skin mass is the
+  area: 288.0          # fat wing's (validator checks planform agreement)
+  span: 32.0
+  areal_density: 0.02  # doublers/tapes only — surface IS the fat_wing skin
+  cl_op: 0.7
+  cl_max: 1.1
+  cd_op: 0.10          # fat section profile drag incl. lines
+  twin_skin: true
 tether:
   length: 400
-  diameter_mm: 12
-  linear_density: 0.09
-  mbl_kn: 110
+  diameter_mm: 16      # common line class (Mk II/III)
+  linear_density: 0.14
+  mbl_kn: 200
   safety_factor: 3.0
-  elevation_deg: 55
+  elevation_deg: 50
 bridle:
-  positions: [0.30, 0.70]
+  positions: [0.12, 0.50, 0.88]   # control / MAIN / control tether stations
 payload_mass: 60       # gimbaled EO/IR pod + avionics
-rigging_mass: 45
+rigging_mass: 50       # 3-point tether hardware + control-line winchlets
 dock_capacity: 0

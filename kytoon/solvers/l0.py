@@ -141,6 +141,26 @@ def solve_structure(spec: KytoonSpec, tow_force_n: float) -> list[TubeStressResu
             )
         )
 
+    if spec.fat_wing is not None:
+        # lofted fat wing: one pressurized body carries ALL aero bending.
+        # Wrinkle: equivalent beam of diameter t_max (conservative for a
+        # wing box). Hoop: the skin balloons between internal cell webs,
+        # bulge radius ≈ cell pitch / 2 — so more cells = tighter skin.
+        fw = spec.fat_wing
+        beam = _tube_stress(fw.equivalent_tube,
+                            f"fat-wing box (equiv Ø{fw.t_max:.1f} m)",
+                            worst_moment(fw.span))
+        hoop = fw.pressure_bar * 1e5 * fw.cell_pitch / 2
+        results.append(TubeStressResult(
+            label=beam.label,
+            hoop_stress_n_per_m=hoop,
+            hoop_utilization=hoop / fw.fabric_strength_n_per_m,
+            wrinkle_moment_nm=beam.wrinkle_moment_nm,
+            collapse_moment_nm=beam.collapse_moment_nm,
+            applied_moment_nm=beam.applied_moment_nm,
+            bending_utilization=beam.bending_utilization,
+        ))
+
     if spec.hull is not None:
         # near-zero-superpressure hull; 500 Pa gust superpressure, cylinder
         # hoop N = p·r at max diameter (worse than the spheroid's ends)
@@ -235,9 +255,10 @@ def solve_wind_envelope(spec: KytoonSpec) -> WindEnvelope:
         )
 
     # pressurized-envelope dent: past q ≈ superpressure, the stagnation
-    # point pushes the envelope in and it loses shape. Lobe/hull use the
-    # same 500 Pa gust superpressure as their hoop check; torus its spec
-    # pressure. Wings-only archetypes have no such surface.
+    # point pushes the envelope in and it loses shape. The lobe uses the
+    # same 500 Pa gust superpressure as its hoop check; torus its spec
+    # pressure. High-pressure tubes (LEI, spar, fat wing) don't dent at
+    # flyable q; wings-only archetypes have no such surface.
     if spec.lobe is not None or spec.hull is not None:
         limits["envelope dent"] = math.sqrt(2 * 500 / RHO_AIR)
     elif spec.torus is not None:

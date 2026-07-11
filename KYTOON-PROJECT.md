@@ -32,18 +32,23 @@ log (`kiteship-project-log.md`). This repo owns the *numbers*.
 | II | Helikite | `helikite` | zero-wind ISR loiter | oblate He lobe + 2 braced side deltas (v2) |
 | III | Spine | `spine` | boost + drone perch/recharge | inflatable keel spar carrying grapple rail + 300 kg dock |
 | IV | Torus | `torus` | calm-air recovery node | He ring, capture line through central duct |
-| V | Manta | `blimp` | single-kytoon challenger | prolate He hull + two side delta wings |
+| V | Manta | `fatwing` | single-kytoon challenger | lofted multi-cell He fat wing, 3-pt tether (main + 2 control) |
+
+(Retired alternates live in `specs/alternates/` — currently the original
+winged-blimp Manta (`blimp` archetype, Mk V-A). They stay solvable and
+tested but are NOT part of the fleet gates.)
 
 **Fleet logic (load-bearing design decision, now CHALLENGED):** the
 original logic — no single Mk covers the operational wind range, so the
 ship carries a buoyant type (II/IV) plus a traction type (I/III) — is
-encoded in `test_fleet_covers_zero_to_20ms`. **Mk V (added 2026-07-08)
-solves 0–26.1 m/s alone at L0** (`test_mk5_single_kytoon_coverage`),
-which would collapse the two-kytoon carriage to one airframe. Caveats
-before believing it: Mk V's cl_op 0.65 / cd_op 0.18 are hand-picked and
-NOT benchmark-covered (§3.7-class uncertainty); hull structure is
-hoop-only; low tow force (7.7 kN @ 12 m/s) means weak launch boost — it
-challenges Mk II/IV's slot, not the traction role.
+encoded in `test_fleet_covers_zero_to_20ms`. **Mk V (fat-wing v2,
+2026-07-11) solves 0–23.1 m/s alone at L0 with 18 kN tow @ 12 m/s**
+(`test_mk5_single_kytoon_coverage`) — unlike its blimp predecessor it
+challenges BOTH slots: calm-air ISR (buoyant, +232 kg incl. tether) and
+a meaningful share of the traction role (18 kN vs Mk I/III's ~28). Caveats:
+its cl_op 0.7 / cd_op 0.10 are hand-picked; the Breukels section model is
+extrapolated at t/c 0.28 (flagged at L1); control-tether authority is
+asserted, not analyzed (L2/dynamics).
 **Common interfaces across all Mks** (do not fork per-Mk): tether
 termination + load cell, grapple fixture geometry, IMU/GNSS + He telemetry,
 capture-line hardpoint.
@@ -139,10 +144,8 @@ consciously replace them (and update this file + tests):
 
 ## 4. The test suite is a contract
 
-`tests/test_l0.py` (16) + `tests/test_l1_aero.py` (11) +
-`tests/test_l1_tether.py` (8) + `tests/test_viz.py` (6) +
-`tests/test_geometry.py` (11) + `tests/test_l1_body_aero.py` (8) — all
-passing at last compile. Categories:
+64 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
+test_geometry, test_l1_body_aero — all passing at last compile. Categories:
 
 - **Physics anchors** (must never change without a source): He net-lift
   constant; torus volume closed form; wrinkle-moment reference case
@@ -214,6 +217,21 @@ legitimately lower per m² and not comparable to AWE traction figures.
   for 20 kg of net lift (534 → 478 incl. tether). Spec + iteration sheet
   (REV C) updated. Next binding limit is still the tether; going past
   ~29 m/s (18 mm) costs commonality and lift for little ISR value.
+- **Mk V pivot: winged blimp → lofted fat wing (2026-07-11)**: a manta —
+  NACA-form sections lofted along a linearly tapering span (center chord
+  13.3 m → 35% at the tips, t/c 0.28, quarter-chord swept 15°), one
+  pressurized body with 5 chordwise cells; 3-point tether (main + 2
+  control lines at the bridle stations). A tube-bundle representation was
+  tried first and rejected — tubes can't produce the fat-center/thin-tip
+  shape; the loft's volume stays closed-form (K_A·t·c section area over
+  the taper, gated against the mesh). Structure: cell-web pitch sets the
+  skin-bulge hoop (11%), section depth the equivalent-beam wrinkle (10%
+  at 12 m/s; the L0 loop caught the original 0.2 bar hoop bust). Card:
+  530 m³, **+232 kg incl. tether, 0–23.1 m/s (tether WLL, no dent
+  limit), 18 kN tow @ 12 m/s** — the first airframe to credibly straddle
+  both fleet slots. Breukels extrapolation at t/c 0.28 flagged at L1;
+  control-tether authority asserted, not analyzed. The blimp survives as
+  Mk V-A in `specs/alternates/`.
 - **Mk IV's headline ceiling is a tension number, not a mission number
   (2026-07-11)**: with no wing, fixed buoyancy fights v²-growing drag —
   L1 tether blow-down: 83° elevation / 398 m altitude at 5 m/s degrades to

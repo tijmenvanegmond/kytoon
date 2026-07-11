@@ -1,5 +1,6 @@
-"""L1 body-interference aero — hybrid archetypes (Mk II lobe+wing,
-Mk V hull+wing) through AeroSandbox's AeroBuildup.
+"""L1 body-interference aero — buoyant-body hybrids (Mk II lobe+wing)
+through AeroSandbox's AeroBuildup. (Mk V used this path as a winged blimp
+until the 2026-07-11 fat-wing pivot; it now solves via l1_aero/VSM.)
 
 The VSM path (l1_aero.py) handles pure membrane wings; it cannot model a
 large buoyant body next to the wing. This module covers that gap with
@@ -9,8 +10,6 @@ way the V3 path is — its job is to bound the hand-picked spec coefficients,
 not to certify them.
 
 Honesty notes (also emitted as report flags):
-  - Mk V hull is modeled rigid and smooth → body drag is a LOWER bound
-    (soft envelope wrinkles/separation not captured).
   - Mk II's oblate lobe is approximated as an equivalent body of revolution
     (frontal area matched) and its wake blanketing of the keel wing is NOT
     captured → CL is an UPPER bound.
@@ -71,7 +70,7 @@ def build_airplane(spec: KytoonSpec) -> "asb.Airplane":
     af = asb.Airfoil(WING_AIRFOIL)
 
     if spec.archetype == Archetype.BLIMP:
-        # geometry mirrors kytoon.geometry's blimp branch
+        # blimp alternate (specs/alternates/): hull + side deltas
         hr = spec.hull.diameter / 2
         y_root = 0.9 * hr
         half_span = spec.canopy.span / 2 - y_root

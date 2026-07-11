@@ -93,8 +93,8 @@ def test_envelope_dent_limiter(specs):
 
 
 def test_mk5_single_kytoon_coverage(specs):
-    """Mk V's competing claim: one winged blimp covers the whole 0–20+ m/s
-    requirement alone (challenges the two-kytoon carriage logic)."""
+    """Mk V's competing claim: one fat-wing kytoon covers the whole
+    0–20+ m/s requirement alone (challenges the two-kytoon carriage)."""
     env = solve_wind_envelope(specs["V"])
     assert env.v_min_ms == 0.0
     assert env.v_max_ms > 20.0

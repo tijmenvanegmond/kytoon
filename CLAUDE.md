@@ -56,7 +56,8 @@ Three-stage pipeline, one file per stage:
 
 - `kytoon/spec.py` — pydantic schema. `Archetype` enum picks which component
   fields are required (`_check_archetype` validator). Component models
-  (`InflatableTube`, `TorusEnvelope`, `Canopy`, `Lobe`, `Tether`) each derive
+  (`InflatableTube`, `TorusEnvelope`, `Canopy`, `Lobe`, `FatWing`, `Hull`,
+  `Tether`) each derive
   their own `volume`/`mass`/`skin_area` as properties from geometry + areal
   density — there's no separate mass-properties module. `KytoonSpec`
   aggregates these into `helium_volume`, `structure_mass`, `total_mass`.
@@ -120,7 +121,9 @@ that's a design conversation, not a reason to loosen the test.
 ## Conventions
 
 - `specs/*.yaml` are THE design state. To change a design, edit the spec,
-  not constants in code.
+  not constants in code. `specs/alternates/*.yaml` are retired/competing
+  designs: still solvable and covered by explicit tests, but excluded from
+  `load_all("specs")` and therefore from the fleet gates.
 - SI units everywhere unless the field name says otherwise
   (`_bar`, `_mm`, `_kn`, `_deg`).
 - L0 means every solver result is explainable by hand on paper. Anything

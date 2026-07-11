@@ -75,7 +75,14 @@ class ArcWing:
         mean_chord = spec.canopy.area / spec.canopy.span
         height_ratio = ARC_HEIGHT_RATIO
         tube_t = TWIN_SKIN_TUBE_T   # no LE tube → twin-skin (l1_aero flags it)
-        if spec.le_tube is not None:
+        if spec.fat_wing is not None:
+            # fat wing: near-flat planform; section thickness from the loft
+            height_ratio = 0.05
+            tube_t = spec.fat_wing.thickness_ratio
+            taper = spec.fat_wing.taper
+            return cls(span=spec.canopy.span, area=spec.canopy.area,
+                       height_ratio=height_ratio, taper=taper, tube_t=tube_t)
+        elif spec.le_tube is not None:
             tube_t = spec.le_tube.diameter / mean_chord
             # the spec's developed tube length pins the arc shape
             ratio = spec.le_tube.length / spec.canopy.span
@@ -142,6 +149,55 @@ def _tube_along_points(points: np.ndarray, diameter: float):
     return trimesh.util.concatenate(parts)
 
 
+def _airfoil_section(chord: float, thickness: float,
+                     n_half: int = 18) -> np.ndarray:
+    """Closed NACA-4-style symmetric section outline in the x–z plane,
+    (n, 2) array ordered around the perimeter. x ∈ [0, chord]."""
+    xb = 0.5 * (1 - np.cos(np.linspace(0, math.pi, n_half)))  # cosine spacing
+    tr = thickness / chord
+    z = 5 * tr * chord * (0.2969 * np.sqrt(xb) - 0.1260 * xb
+                          - 0.3516 * xb**2 + 0.2843 * xb**3
+                          - 0.1036 * xb**4)   # closed trailing edge
+    upper = np.column_stack([xb * chord, z])
+    lower = np.column_stack([xb * chord, -z])[::-1]
+    return np.vstack([upper, lower[1:-1]])    # closed ring, no dup endpoints
+
+
+def _lofted_fatwing(fw, sweep_deg: float = 15.0, n_span: int = 33):
+    """Watertight manta body: airfoil sections lofted along the tapering
+    span, quarter-chord line swept aft. Fat center, thin tips."""
+    ys = np.linspace(-fw.span / 2, fw.span / 2, n_span)
+    rings = []
+    for y in ys:
+        c = fw.chord_at(abs(2 * y / fw.span))
+        sec = _airfoil_section(c, fw.thickness_ratio * c)
+        x_off = math.tan(math.radians(sweep_deg)) * abs(y) - 0.25 * c
+        rings.append(np.column_stack([
+            sec[:, 0] + x_off, np.full(len(sec), y), sec[:, 1]]))
+    rings = np.asarray(rings)                 # (n_span, n_ring, 3)
+    n_ring = rings.shape[1]
+    verts = rings.reshape(-1, 3)
+    faces = []
+    for i in range(n_span - 1):
+        for j in range(n_ring):
+            a = i * n_ring + j
+            b = i * n_ring + (j + 1) % n_ring
+            c2, d = a + n_ring, b + n_ring
+            faces += [[a, b, c2], [b, d, c2]]
+    # cap the tips with fans to their centroids
+    for i, flip in ((0, False), (n_span - 1, True)):
+        centroid = len(verts) + (0 if i == 0 else 1)
+        for j in range(n_ring):
+            a = i * n_ring + j
+            b = i * n_ring + (j + 1) % n_ring
+            faces.append([b, a, centroid] if not flip else [a, b, centroid])
+    verts = np.vstack([verts, rings[0].mean(axis=0), rings[-1].mean(axis=0)])
+    mesh = trimesh.Trimesh(vertices=verts, faces=faces, process=True)
+    if mesh.volume < 0:
+        mesh.invert()
+    return mesh
+
+
 def _loft_surface(rows: list[np.ndarray]):
     """Open quad-strip surface between successive rows of equal length."""
     rows = np.asarray(rows)
@@ -169,8 +225,9 @@ def build(spec: KytoonSpec) -> "trimesh.Scene":
     _require_trimesh()
     scene = trimesh.Scene()
 
-    # helikite/blimp canopies are not C-arcs — handled in their own branches
-    if spec.canopy is not None and spec.lobe is None and spec.hull is None:
+    # helikite/fatwing/blimp canopies are not C-arcs — own branches below
+    if (spec.canopy is not None and spec.lobe is None
+            and spec.fat_wing is None and spec.hull is None):
         geom = ArcWing.from_spec(spec)
         scene.add_geometry(_canopy_mesh(geom), geom_name="canopy")
         le_pts = np.array([le for le, _ in
@@ -238,29 +295,52 @@ def build(spec: KytoonSpec) -> "trimesh.Scene":
         pod.apply_translation([0.0, 0.0, -cz - 1.0])
         scene.add_geometry(pod, geom_name="pod")
 
+    if spec.fat_wing is not None:
+        fw = spec.fat_wing
+        sweep_deg = 15.0
+        scene.add_geometry(_lofted_fatwing(fw, sweep_deg),
+                           geom_name="body")
+
+        # 3-point tether interface on the underside:
+        # control / MAIN / control at the bridle stations
+        names = ["fixture_port", "fixture_main", "fixture_stbd"]
+        for name, p in zip(names, spec.bridle.positions):
+            y = (p - 0.5) * fw.span
+            c = fw.chord_at(abs(2 * y / fw.span))
+            x = math.tan(math.radians(sweep_deg)) * abs(y) + 0.05 * c
+            r_fix = 0.35 if name == "fixture_main" else 0.22
+            fix = trimesh.creation.icosphere(subdivisions=2, radius=r_fix)
+            fix.apply_translation([x, y, -0.48 * fw.thickness_ratio * c])
+            scene.add_geometry(fix, geom_name=name)
+
+        # gimbaled EO/IR pod under mid-span, aft of the main fixture
+        pod = trimesh.creation.capsule(radius=0.45, height=1.1)
+        pod.apply_transform(
+            trimesh.transformations.rotation_matrix(math.pi / 2, [0, 1, 0]))
+        pod.apply_translation([0.3 * fw.chord, 0.0,
+                               -0.5 * fw.t_max - 0.6])
+        scene.add_geometry(pod, geom_name="pod")
+
     if spec.hull is not None:
-        # prolate hull, long axis downwind (x); two side deltas at max beam
+        # blimp alternate: prolate hull, long axis downwind; side deltas
         hl, hr = spec.hull.length / 2, spec.hull.diameter / 2
         hull = trimesh.creation.icosphere(subdivisions=4)
         hull.apply_scale([hl, hr, hr])
         scene.add_geometry(hull, geom_name="hull")
 
         if spec.canopy is not None:
-            # per-wing: root sits on the hull at 0.9·r; size the root chord
-            # from the actual root→tip extent so 2·(½·c·h) = spec area
             y_root = 0.9 * hr
             half_span = spec.canopy.span / 2 - y_root
             root = spec.canopy.area / half_span   # 2 wings: ½·c·h each
-            x0 = -root / 2 + 1.0                  # root slightly aft of center
+            x0 = -root / 2 + 1.0
             for side, sgn in (("stbd", 1.0), ("port", -1.0)):
-                ys = sgn * y_root
-                verts = [
-                    [x0, ys, 0.0],
-                    [x0 + root, ys, 0.0],
-                    [x0 + 0.75 * root, sgn * spec.canopy.span / 2, 0.8],
-                ]
-                wing = trimesh.Trimesh(vertices=verts, faces=[[0, 1, 2]],
-                                       process=False)
+                wing = trimesh.Trimesh(
+                    vertices=[
+                        [x0, sgn * y_root, 0.0],
+                        [x0 + root, sgn * y_root, 0.0],
+                        [x0 + 0.75 * root, sgn * spec.canopy.span / 2, 0.8],
+                    ],
+                    faces=[[0, 1, 2]], process=False)
                 scene.add_geometry(wing, geom_name=f"wing_{side}")
 
         pod = trimesh.creation.capsule(radius=0.45, height=1.1)

@@ -7,6 +7,7 @@ from __future__ import annotations
 import math
 from enum import Enum
 from pathlib import Path
+from typing import ClassVar
 
 import yaml
 from pydantic import BaseModel, Field, model_validator
@@ -17,7 +18,8 @@ class Archetype(str, Enum):
     HELIKITE = "helikite"    # Mk II — buoyant lobe + keel wing
     SPINE = "spine"          # Mk III — semi-rigid spar + twin-skin canopy
     TORUS = "torus"          # Mk IV — annular lifting body
-    BLIMP = "blimp"          # Mk V  — prolate hull + two side delta wings
+    FATWING = "fatwing"      # Mk V  — multi-tube inflatable fat wing
+    BLIMP = "blimp"          # alternate (specs/alternates/): hull + side wings
 
 
 class InflatableTube(BaseModel):
@@ -152,6 +154,77 @@ class Hull(BaseModel):
         return self.skin_area * self.fabric_areal_density
 
 
+class FatWing(BaseModel):
+    """Lofted inflatable fat wing (manta-style): closed airfoil sections
+    scaled by a linearly tapering local chord c(y) = c₀·(1 − (1−λ)·|2y/b|)
+    — fat in the middle, thin at the tips. One pressurized body divided
+    into n_cells chordwise cells by internal webs; the web pitch sets the
+    skin-bulge hoop check, the section depth sets the equivalent-beam
+    wrinkle check. The wing IS the buoyant volume and the structure; the
+    spec's `canopy` carries only the aero coefficients (+ doubler mass).
+
+    Closed forms (NACA-4 thickness law, K_A = 0.681, perimeter ≈ 2.1·c):
+      section area A(y) = K_A · t(y) · c(y),  t = thickness_ratio · c
+      volume = K_A·(t/c)·c₀²·b·(λ²+λ+1)/3
+      skin   = 2.1·c₀·b·(1+λ)/2   (+20% mass for internal webs)
+    """
+    span: float = Field(gt=0, description="wing span [m]")
+    chord: float = Field(gt=0, description="CENTER chord c₀ [m]")
+    taper: float = Field(0.35, gt=0, le=1, description="tip/center chord λ")
+    thickness_ratio: float = Field(0.28, gt=0, lt=0.5, description="t/c")
+    n_cells: int = Field(5, ge=2, description="chordwise pressure cells")
+    pressure_bar: float = Field(0.10, gt=0)
+    fabric_areal_density: float = Field(0.20, gt=0)
+    fabric_strength_n_per_m: float = Field(120_000, gt=0)  # load-taped
+    gas: str = Field("helium", description="'helium' or 'air'")
+
+    K_A: ClassVar[float] = 0.681   # ∫ NACA-4 closed-TE thickness dx / (t·c)
+    K_P: ClassVar[float] = 2.1     # airfoil perimeter / chord (fat section)
+    WEB_MASS_FACTOR: ClassVar[float] = 1.2
+
+    @property
+    def planform_area(self) -> float:
+        """∫c dy = b·c₀·(1+λ)/2 for linear taper."""
+        return self.span * self.chord * (1 + self.taper) / 2
+
+    def chord_at(self, y_frac: float) -> float:
+        """Local chord at |2y/b| = y_frac ∈ [0, 1]."""
+        return self.chord * (1 - (1 - self.taper) * y_frac)
+
+    @property
+    def t_max(self) -> float:
+        return self.thickness_ratio * self.chord
+
+    @property
+    def cell_pitch(self) -> float:
+        return self.chord / self.n_cells
+
+    @property
+    def equivalent_tube(self) -> InflatableTube:
+        """Center-section pressurized beam of diameter t_max — a
+        conservative stand-in for the wing box's wrinkle capacity."""
+        return InflatableTube(
+            diameter=self.t_max, length=self.span,
+            pressure_bar=self.pressure_bar,
+            fabric_areal_density=self.fabric_areal_density,
+            fabric_strength_n_per_m=self.fabric_strength_n_per_m,
+            gas=self.gas,
+        )
+
+    @property
+    def volume(self) -> float:
+        factor = self.span * (self.taper**2 + self.taper + 1) / 3
+        return self.K_A * self.t_max * self.chord * factor
+
+    @property
+    def skin_area(self) -> float:
+        return self.K_P * self.chord * self.span * (1 + self.taper) / 2
+
+    @property
+    def mass(self) -> float:
+        return self.skin_area * self.fabric_areal_density * self.WEB_MASS_FACTOR
+
+
 class Tether(BaseModel):
     length: float = Field(400, gt=0, description="deployed length [m]")
     diameter_mm: float = Field(14, gt=0)
@@ -185,6 +258,7 @@ class KytoonSpec(BaseModel):
     spar: InflatableTube | None = None
     lobe: Lobe | None = None
     torus: TorusEnvelope | None = None
+    fat_wing: FatWing | None = None
     hull: Hull | None = None
     tether: Tether = Field(default_factory=Tether)
     bridle: BridleAttachment = Field(default_factory=BridleAttachment)
@@ -200,11 +274,19 @@ class KytoonSpec(BaseModel):
             Archetype.HELIKITE: ("canopy", "lobe"),
             Archetype.SPINE: ("canopy", "spar"),
             Archetype.TORUS: ("torus",),
+            Archetype.FATWING: ("canopy", "fat_wing"),
             Archetype.BLIMP: ("canopy", "hull"),
         }[self.archetype]
         for field in need:
             if getattr(self, field) is None:
                 raise ValueError(f"{self.archetype.value} spec requires '{field}'")
+        if self.fat_wing is not None and self.canopy is not None:
+            # one wing, two views of it: planforms must agree
+            planform = self.fat_wing.planform_area
+            if abs(planform - self.canopy.area) > 0.05 * self.canopy.area:
+                raise ValueError(
+                    f"fatwing planform {planform:.0f} m² disagrees with "
+                    f"canopy area {self.canopy.area:.0f} m²")
         return self
 
     # ---- aggregates -------------------------------------------------------
@@ -220,6 +302,8 @@ class KytoonSpec(BaseModel):
             v += self.lobe.volume
         if self.torus is not None:
             v += self.torus.volume
+        if self.fat_wing is not None and self.fat_wing.gas == "helium":
+            v += self.fat_wing.volume
         if self.hull is not None:
             v += self.hull.volume
         return v
@@ -238,6 +322,8 @@ class KytoonSpec(BaseModel):
             m += self.lobe.mass
         if self.torus is not None:
             m += self.torus.mass
+        if self.fat_wing is not None:
+            m += self.fat_wing.mass
         if self.hull is not None:
             m += self.hull.mass
         return m

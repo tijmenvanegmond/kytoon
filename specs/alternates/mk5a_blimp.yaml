@@ -1,0 +1,36 @@
+# ALTERNATE — not part of the fleet. specs/alternates/*.yaml are retained
+# trade-study designs; load_all("specs") does not pick them up, so fleet
+# gates ignore them. This is the original winged-blimp Manta, superseded by
+# the fat-wing pivot (2026-07-11) but kept solvable for comparison.
+name: "Mk V-A «Manta» (blimp alternate)"
+mk: "V-A"
+archetype: blimp
+notes: >
+  Original Mk V concept: prolate He hull with two side delta wings.
+  Superseded by the tubular fat wing (specs/mk5_manta.yaml) — kept as a
+  live alternate. L0 card at retirement: +469 kg net static, 0–26.1 m/s
+  tether-limited (dent limit 28.6 close behind), tow 7.7 kN @ 12 m/s.
+hull:
+  length: 22.0
+  diameter: 7.5
+  fabric_areal_density: 0.20
+canopy:                # both side wings, total projected
+  area: 130.0
+  span: 27.5           # tip-to-tip incl. 7.5 m hull
+  areal_density: 0.15
+  cl_op: 0.65          # side wings + hull body lift, hull wake degraded
+  cl_max: 0.9
+  cd_op: 0.18          # includes hull bluff drag
+  twin_skin: false
+tether:
+  length: 400
+  diameter_mm: 12
+  linear_density: 0.09
+  mbl_kn: 110
+  safety_factor: 3.0
+  elevation_deg: 55
+bridle:
+  positions: [0.30, 0.70]
+payload_mass: 60       # gimbaled EO/IR pod + avionics
+rigging_mass: 45
+dock_capacity: 0

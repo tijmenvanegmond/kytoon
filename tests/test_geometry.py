@@ -74,19 +74,27 @@ def test_spar_mesh_volume_matches_spec(specs, scenes):
 
 
 @needs_trimesh
-def test_hull_mesh_volume_matches_spec(specs, scenes):
-    mesh = scenes["V"].geometry["hull"]
-    assert mesh.is_watertight
-    assert mesh.volume == pytest.approx(specs["V"].hull.volume, rel=0.02)
+def test_fatwing_lofted_body_volume_matches_spec(specs, scenes):
+    """The lofted manta body carries the spec's closed-form He volume
+    (K_A·t·c section area integrated over the linear taper)."""
+    fw = specs["V"].fat_wing
+    body = scenes["V"].geometry["body"]
+    assert body.is_watertight
+    assert abs(body.volume) == pytest.approx(fw.volume, rel=0.05)
 
 
 @needs_trimesh
-@pytest.mark.parametrize("mk", ["II", "V"])
-def test_side_delta_mesh_area_matches_spec(specs, scenes, mk):
-    """Two side deltas together carry the spec's projected wing area."""
-    total = (scenes[mk].geometry["wing_stbd"].area
-             + scenes[mk].geometry["wing_port"].area)
-    assert total == pytest.approx(specs[mk].canopy.area, rel=0.02)
+def test_fatwing_has_three_tether_fixtures(scenes):
+    names = set(scenes["V"].geometry.keys())
+    assert {"fixture_port", "fixture_main", "fixture_stbd"} <= names
+
+
+@needs_trimesh
+def test_side_delta_mesh_area_matches_spec(specs, scenes):
+    """Mk II's two side deltas together carry the spec's wing area."""
+    total = (scenes["II"].geometry["wing_stbd"].area
+             + scenes["II"].geometry["wing_port"].area)
+    assert total == pytest.approx(specs["II"].canopy.area, rel=0.02)
 
 
 @needs_trimesh
@@ -105,3 +113,13 @@ def test_all_specs_build_and_export(specs, tmp_path):
     for s in specs.values():
         paths = export(s, tmp_path)
         assert all(p.stat().st_size > 5_000 for p in paths)
+
+
+@needs_trimesh
+def test_blimp_alternate_hull_volume():
+    """The retired blimp stays buildable (specs/alternates/, off-fleet)."""
+    from kytoon.spec import load_spec
+    s = load_spec("specs/alternates/mk5a_blimp.yaml")
+    mesh = build(s).geometry["hull"]
+    assert mesh.is_watertight
+    assert mesh.volume == pytest.approx(s.hull.volume, rel=0.02)

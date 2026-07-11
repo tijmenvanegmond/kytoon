@@ -12,8 +12,8 @@
 
   <text x="60" y="70" fill="#eef4f8" font-size="16" font-weight="bold" letter-spacing="3">KYTOON ITERATIONS — MK I → MK IV</text>
   <text x="60" y="92" fill="#8fb0c4" font-size="11">Common interfaces: tether termination + load cell · grapple fixture (LE underside) · IMU/GNSS + He pressure telemetry · capture-line hardpoint</text>
-  <text x="1180" y="70" fill="#8fb0c4" font-size="11">DWG KS-40-KY-002 · REV D</text>
-  <text x="620" y="1018" fill="#5f8299" font-size="9">REV B — numbers synced to kytoon-sim L0 solver (reports/l0.md) · REV C — Mk II tether 12→16 mm · REV D — Mk II v2: two braced side deltas (88 m²), dent-limited 0–28.6 m/s; sketch pending; Mk V «Manta» panel pending</text>
+  <text x="1180" y="70" fill="#8fb0c4" font-size="11">DWG KS-40-KY-002 · REV E</text>
+  <text x="620" y="1018" fill="#5f8299" font-size="9">REV B — numbers synced to kytoon-sim L0 solver (reports/l0.md) · REV C/D — Mk II: 16 mm tether, two braced side deltas (88 m²), 0–28.6 m/s · REV E — Mk V pivots to multi-tube fat wing, 3-pt tether (0–23.1 m/s, 18 kN tow); Mk II sketch + Mk V panel pending</text>
 
   <!-- legend -->
   <g transform="translate(830,84)">
