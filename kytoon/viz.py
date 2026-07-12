@@ -15,6 +15,7 @@ CLI: python -m kytoon.viz specs/ -o reports/figures
 from __future__ import annotations
 
 import math
+import re
 from pathlib import Path
 
 import matplotlib
@@ -293,9 +294,23 @@ def fig_fleet_geometry(specs: list[KytoonSpec]):
     return fig
 
 
+def _slug(name: str) -> str:
+    """Filesystem-safe stem: spec names carry «»/spaces/brackets that make
+    poor filenames (and are risky to shell out with) — collapse to snake_case."""
+    return re.sub(r"\W+", "_", name, flags=re.UNICODE).strip("_").lower() or "spec"
+
+
 # ---------------------------------------------------------------------------
 def generate_all(spec_dir: str | Path, out_dir: str | Path) -> list[Path]:
-    """Write every figure the installed extras allow. Returns paths written."""
+    """Write every figure the installed extras allow. Returns paths written.
+
+    Polar/tether figures are attempted per spec (not hardcoded per Mk) so
+    this works generically on any spec directory, e.g. specs/manta/. A
+    missing l1 extra is detected once per figure kind and then skipped for
+    the rest of the run rather than re-raising per spec; an archetype that
+    genuinely doesn't support a figure (e.g. torus has no wing — l1_aero
+    raises ValueError) is skipped with a message, not swallowed silently.
+    """
     from kytoon.spec import load_all
 
     out = Path(out_dir)
@@ -313,17 +328,27 @@ def generate_all(spec_dir: str | Path, out_dir: str | Path) -> list[Path]:
     save(fig_fleet_envelopes(reports), "fleet_envelopes.png")
     save(fig_structure_margins(reports), "structure_margins.png")
 
-    by_mk = {s.mk: s for s in specs}
-    try:
-        save(fig_polar(by_mk["I"]), "polar_mk1.png")
-        save(fig_polar(by_mk["III"]), "polar_mk3.png")
-    except ImportError:
-        print("l1 extra (VSM) absent — skipping polar figures")
-    try:
-        save(fig_tether_profiles(by_mk["I"]), "tether_mk1.png")
-        save(fig_tether_profiles(by_mk["IV"]), "tether_mk4.png")
-    except ImportError:
-        print("l1 extra (moorpy) absent — skipping tether figures")
+    l1_aero_available = True
+    l1_tether_available = True
+    for spec in specs:
+        slug = _slug(spec.name)
+        if l1_aero_available:
+            try:
+                save(fig_polar(spec), f"polar_{slug}.png")
+            except ImportError:
+                print("l1 extra (VSM) absent — skipping polar figures")
+                l1_aero_available = False
+            except ValueError as e:
+                print(f"{spec.name}: polar skipped — {e}")
+        if l1_tether_available:
+            try:
+                save(fig_tether_profiles(spec), f"tether_{slug}.png")
+            except ImportError:
+                print("l1 extra (moorpy) absent — skipping tether figures")
+                l1_tether_available = False
+            except ValueError as e:
+                print(f"{spec.name}: tether skipped — {e}")
+
     try:
         save(fig_fleet_geometry(specs), "fleet_geometry.png")
     except ImportError:

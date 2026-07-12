@@ -1,0 +1,36 @@
+name: Mk V «Manta» [n_cells=3]
+mk: V
+archetype: fatwing
+notes: 'Sweep variant: cells = 3 (baseline 5); all else unchanged from specs/mk5_manta.yaml.'
+fat_wing:
+  span: 32.0
+  chord: 13.3
+  taper: 0.35
+  thickness_ratio: 0.28
+  n_cells: 3
+  pressure_bar: 0.1
+  fabric_areal_density: 0.2
+  fabric_strength_n_per_m: 120000
+canopy:
+  area: 288.0
+  span: 32.0
+  areal_density: 0.02
+  cl_op: 0.7
+  cl_max: 1.1
+  cd_op: 0.1
+  twin_skin: true
+tether:
+  length: 400
+  diameter_mm: 16
+  linear_density: 0.14
+  mbl_kn: 200
+  safety_factor: 3.0
+  elevation_deg: 50
+bridle:
+  positions:
+  - 0.12
+  - 0.5
+  - 0.88
+payload_mass: 60
+rigging_mass: 50
+dock_capacity: 0
