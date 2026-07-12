@@ -131,8 +131,11 @@ def test_mk5_fatwing_resultant_band(mk5_report):
 
 @needs_vsm
 def test_mk5_breukels_extrapolation_flagged(mk5_report):
-    """t/c 0.28 is beyond the LEI regression fit range — must be flagged."""
+    """t/c 0.28 is beyond the LEI regression fit range — must be flagged;
+    the twin-skin slim-profile flag must NOT fire (the fat wing's section
+    thickness comes from the spec, not the t=0.06 stand-in)."""
     assert any("extrapolated" in f for f in mk5_report.flags)
+    assert not any("twin-skin" in f for f in mk5_report.flags)
 
 
 @needs_vsm

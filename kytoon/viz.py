@@ -78,8 +78,17 @@ def fig_fleet_envelopes(reports: list[L0Report]):
                 linewidth=2, zorder=3)
         ax.text(-0.6, y, rep.spec.name, ha="right", va="center",
                 fontsize=10, color=INK)
-        ax.text(env.v_max_ms + 0.5, y,
-                f"{env.v_min_ms:.1f}–{env.v_max_ms:.1f} m/s · {env.v_max_limiter}",
+        note = f"{env.v_min_ms:.1f}–{env.v_max_ms:.1f} m/s · {env.v_max_limiter}"
+        if env.v_mission_ms < env.v_max_ms - 0.05:
+            # blow-down caps the useful range before the line breaks:
+            # hatch the flattered part of the bar and say so
+            ax.barh(y, env.v_max_ms - env.v_mission_ms, left=env.v_mission_ms,
+                    height=0.5, color=SURFACE, alpha=0.55, edgecolor="none",
+                    zorder=4)
+            ax.plot([env.v_mission_ms] * 2, [y - 0.25, y + 0.25],
+                    color=INK, lw=1.4, zorder=5)
+            note += f" · mission ≤ {env.v_mission_ms:.1f} (elev < 45°)"
+        ax.text(env.v_max_ms + 0.5, y, note,
                 ha="left", va="center", fontsize=8.5, color=INK2)
 
     ax.axvline(20, color=MUTED, linewidth=0.8, linestyle=(0, (4, 3)), zorder=2)

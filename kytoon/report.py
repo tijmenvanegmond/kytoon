@@ -31,6 +31,8 @@ def comparison_table(reports: list[L0Report]) -> str:
         ("v_min [m/s]", lambda r: _fmt(r.envelope.v_min_ms)),
         ("v_max [m/s]", lambda r: _fmt(r.envelope.v_max_ms)),
         ("v_max limiter", lambda r: r.envelope.v_max_limiter),
+        ("Mission ceiling (elev ≥ 45°) [m/s]",
+         lambda r: _fmt(r.envelope.v_mission_ms)),
         ("Tow @12 m/s [kN]", lambda r: _fmt(r.envelope.tow_force_at_12ms_kn)),
         ("Spare vert. lift @10 m/s [kg]",
          lambda r: _fmt(r.envelope.vertical_capacity_at_10ms_kg, 0)),

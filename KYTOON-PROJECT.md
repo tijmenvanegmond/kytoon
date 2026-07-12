@@ -77,6 +77,10 @@ kytoon/viz.py           CLI: python -m kytoon.viz specs/ -o reports/figures
                         (L0 figures always; polar/tether figures need `l1`)
 kytoon/geometry.py      3D kernel: spec → trimesh scene → models/*.glb|stl.
                         Owns ArcWing (shared with l1_aero). Needs `l1`.
+kytoon/sweep.py         OAT design sweep around one spec (built for Mk V):
+                        python -m kytoon.sweep specs/mk5_manta.yaml --l1.
+                        Variant specs land in specs/manta/, results in
+                        reports/mk5_sweep/.
 data/tudelft_v3/        vendored CC-BY benchmark (see SOURCE.md for citations).
                         Treat as read-only; re-download from awegroup if stale.
 tests/test_l0.py        14 tests = the L0 validation contract (see §4).
@@ -144,7 +148,7 @@ consciously replace them (and update this file + tests):
 
 ## 4. The test suite is a contract
 
-64 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
+65 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
 test_geometry, test_l1_body_aero — all passing at last compile. Categories:
 
 - **Physics anchors** (must never change without a source): He net-lift
@@ -217,6 +221,13 @@ legitimately lower per m² and not comparable to AWE traction figures.
   for 20 kg of net lift (534 → 478 incl. tether). Spec + iteration sheet
   (REV C) updated. Next binding limit is still the tether; going past
   ~29 m/s (18 mm) costs commonality and lift for little ISR value.
+- **Mk V OAT sweep (2026-07-12, `kytoon/sweep.py` → reports/mk5_sweep/)**:
+  center chord is the dominant knob (11.5→15 m: net incl. tether 113→363 kg,
+  tow 15.5→20.2 kN, ceiling 24.9→21.8 — all still >20); taper trades the
+  same direction more weakly; n_cells and pressure are pure structure
+  knobs (hoop ∝ pitch·p, wrinkle ∝ 1/p) with zero envelope effect. L1
+  cr_ratio stays 1.01 across the sweep. Growing the Manta is cheap if the
+  mission wants payload; the baseline 13.3 m is the balanced point.
 - **Mk V pivot: winged blimp → lofted fat wing (2026-07-11)**: a manta —
   NACA-form sections lofted along a linearly tapering span (center chord
   13.3 m → 35% at the tips, t/c 0.28, quarter-chord swept 15°), one
@@ -236,11 +247,14 @@ legitimately lower per m² and not comparable to AWE traction figures.
   (2026-07-11)**: with no wing, fixed buoyancy fights v²-growing drag —
   L1 tether blow-down: 83° elevation / 398 m altitude at 5 m/s degrades to
   44°/280 m at 15 and 20°/136 m at 25. Its *useful* envelope (elevation
-  ≥ 45°, capture line workable) is ≈ 0–14 m/s, not the 0–44 the L0 table
+  ≥ 45°, capture line workable) is ≈ 0–15 m/s, not the 0–44 the L0 table
   suggests. Mk II v2 holds ≥ 64°/360 m through 25 m/s because wing lift
-  grows with q. Candidate improvement: add a "mission ceiling"
-  (elevation-floor) metric to the envelope solve so the comparison table
-  stops flattering drag-only aerostats.
+  grows with q. IMPLEMENTED 2026-07-12: `v_mission_ms` (elevation ≥ 45°,
+  straight-line force balance — closed form, agrees with the MoorPy
+  blow-down at 15.0 vs 44°@15) is now in `WindEnvelope`, the report table,
+  and the envelope figure (Mk IV's bar is washed past its mission tick).
+  The fleet-coverage gate now counts mission ceiling, not line survival.
+  Fleet by useful ceiling: II 28.6 > V 23.1 > III 18.5 > IV 15.0 > I 13.7.
 - **Mk II v2: side deltas replace the under-lobe keel sheet (2026-07-11,
   REV D)**: a single 250 m² unsupported fabric surface under the lobe
   cannot hold shape — no load path to its trailing edge. Replaced with two

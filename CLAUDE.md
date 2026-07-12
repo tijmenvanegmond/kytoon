@@ -98,6 +98,11 @@ Three-stage pipeline, one file per stage:
   exports `models/*.glb|stl`. Owns `ArcWing`, the C-arc shape shared with
   `l1_aero` — when a spec has an LE tube, its developed length pins the arc
   (don't reintroduce a second shape definition). Needs the `l1` extra.
+- `kytoon/sweep.py` — one-at-a-time design sweep around a baseline spec
+  (`python -m kytoon.sweep specs/mk5_manta.yaml -o reports/mk5_sweep --l1`).
+  Writes variant specs (e.g. `specs/manta/`) and a markdown+figure summary.
+  Overriding planform fields re-derives `canopy.area` to keep the
+  validator's planform-agreement check satisfied.
 - `kytoon/viz.py` — static matplotlib figures into `reports/figures/`:
   fleet envelopes + structure margins (L0-only), Mk polars vs the V3
   benchmark and tether profiles (need the `l1` extra; CLI skips them

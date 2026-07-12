@@ -131,7 +131,9 @@ def solve(spec: KytoonSpec, n_panels: int = 40,
             "lobe interference NOT modeled — wing-only polar; do not feed "
             "into the Mk II envelope (task queue §7.5)"
         )
-    if spec.canopy is not None and spec.canopy.twin_skin:
+    if (spec.canopy is not None and spec.canopy.twin_skin
+            and spec.fat_wing is None):
+        # (not for fat wings: their section IS the thickness, t/c from spec)
         flags.append(
             "twin-skin section approximated by slim Breukels LEI profile "
             f"(t={TWIN_SKIN_TUBE_T}) — expect conservative L/D"

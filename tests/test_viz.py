@@ -28,7 +28,11 @@ def _saves(fig, tmp_path, name):
 def test_fleet_envelopes_builds(reports, tmp_path):
     fig = viz.fig_fleet_envelopes(reports)
     ax = fig.axes[0]
-    assert len(ax.patches) == len(reports)          # one range bar per Mk
+    # one range bar per Mk + one wash overlay per mission-capped Mk
+    capped = sum(1 for r in reports
+                 if r.envelope.v_mission_ms < r.envelope.v_max_ms - 0.05)
+    assert len(ax.patches) == len(reports) + capped
+    assert capped >= 1                              # Mk IV blows down
     _saves(fig, tmp_path, "env.png")
 
 

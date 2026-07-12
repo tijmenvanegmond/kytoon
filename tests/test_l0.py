@@ -92,6 +92,19 @@ def test_envelope_dent_limiter(specs):
     assert solve_wind_envelope(specs["IV"]).v_max_limiter != "envelope dent"
 
 
+def test_mission_ceiling_binds_only_drag_aerostats(specs):
+    """Elevation-floor ceiling (≥45°): a drag-only aerostat blows down when
+    q·Cd·A_frontal = net buoyant force. Mk IV hand check:
+    v = √(2·425·9.81 / (1.225·0.5·60.75)) ≈ 15.0 m/s — matching the L1
+    MoorPy blow-down (44° @ 15 m/s). Winged kytoons keep their angle."""
+    env4 = solve_wind_envelope(specs["IV"])
+    assert env4.v_mission_ms == pytest.approx(15.0, abs=0.2)
+    assert env4.v_mission_ms < env4.v_max_ms
+    for mk in ("I", "II", "III", "V"):
+        env = solve_wind_envelope(specs[mk])
+        assert env.v_mission_ms == pytest.approx(env.v_max_ms, rel=1e-3), mk
+
+
 def test_mk5_single_kytoon_coverage(specs):
     """Mk V's competing claim: one fat-wing kytoon covers the whole
     0–20+ m/s requirement alone (challenges the two-kytoon carriage)."""
@@ -102,9 +115,12 @@ def test_mk5_single_kytoon_coverage(specs):
 
 
 def test_fleet_covers_zero_to_20ms(specs):
+    """Coverage counted in MISSION ceiling (elev ≥ 45°), not line-survival
+    v_max — a kytoon streaming at 20° elevation isn't covering anything.
+    (Tightened 2026-07-12 with the mission-ceiling metric.)"""
     envs = [solve_wind_envelope(s) for s in specs.values()]
     assert min(e.v_min_ms for e in envs) == 0.0
-    assert max(e.v_max_ms for e in envs) > 20.0
+    assert max(e.v_mission_ms for e in envs) > 20.0
 
 
 def test_full_solve_runs_for_all(specs):

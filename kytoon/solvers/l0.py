@@ -203,6 +203,9 @@ class WindEnvelope:
     v_max_limiter: str              # what sets the ceiling
     tow_force_at_12ms_kn: float
     vertical_capacity_at_10ms_kg: float  # spare vertical lift at 10 m/s
+    v_mission_ms: float = 0.0       # ceiling with tether elevation ≥ 45°
+                                    # (≤ v_max; binds drag-only aerostats,
+                                    # whose fixed buoyancy loses to v² drag)
 
 
 def solve_wind_envelope(spec: KytoonSpec) -> WindEnvelope:
@@ -268,6 +271,36 @@ def solve_wind_envelope(spec: KytoonSpec) -> WindEnvelope:
     limiter = min(limits, key=limits.get)  # type: ignore[arg-type]
     v_max = limits[limiter]
 
+    # mission ceiling: straight-line force balance, elevation = atan(V/H).
+    # Holding station (ISR pod, capture line overhead) needs ≥ 45°. Winged
+    # kytoons gain vertical force with q and never lose the angle inside
+    # their envelope; drag-only aerostats blow down as v² (L1 MoorPy
+    # cross-check: Mk IV sits at 44° @ 15 m/s with sag included).
+    net_n = (buoy.net_static_lift_kg - spec.tether.mass) * G
+
+    def _elev_ok(v: float) -> bool:
+        q = 0.5 * RHO_AIR * v**2
+        if S:
+            vert = q * S * cl + net_n
+            horiz = q * S * spec.canopy.cd_op
+        else:
+            vert = net_n
+            horiz = q * 0.5 * (spec.torus.ring_diameter *
+                               spec.torus.tube_diameter if spec.torus else 1.0)
+        return vert >= horiz  # tan(45°) = 1
+
+    if _elev_ok(v_max):
+        v_mission = v_max
+    else:
+        lo_v, hi_v = 0.0, v_max
+        for _ in range(50):
+            mid = 0.5 * (lo_v + hi_v)
+            if _elev_ok(mid):
+                lo_v = mid
+            else:
+                hi_v = mid
+        v_mission = 0.5 * (lo_v + hi_v)
+
     q12 = 0.5 * RHO_AIR * 12**2
     tow12 = q12 * S * cr / 1e3 if S else 0.0
     q10 = 0.5 * RHO_AIR * 10**2
@@ -280,6 +313,7 @@ def solve_wind_envelope(spec: KytoonSpec) -> WindEnvelope:
         v_max_limiter=limiter,
         tow_force_at_12ms_kn=tow12,
         vertical_capacity_at_10ms_kg=spare10,
+        v_mission_ms=v_mission,
     )
 
 
