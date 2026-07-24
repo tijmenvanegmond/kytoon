@@ -20,6 +20,7 @@ extends Node3D
 #               (standoff clamps, ctl drum auto-tends ~3 kN — pitch
 #               pinning weakens, so depower before you reel deep).
 #   G           fire a +6 m/s 1-cos gust (6 s)
+#   T           toggle pod theta-hold autotrim (target THETA_HOLD_DEG)
 #   R           reset to trim      Space: pause
 #
 # Demo capture: -- --demo-out=C:/path/frames  (scripted wind/winch sequence)
@@ -28,6 +29,9 @@ const DT := 1.0 / 240.0            # physics substep
 const WINCH_RATE := 0.5            # m/s, control winchlet
 const MAIN_WINCH_RATE := 2.0       # m/s, main recovery winch
 const T_TEND := 3000.0             # N, ctl drum constant-tension when docked
+const THETA_HOLD_DEG := 10.0       # theta setpoint for pod autotrim
+const THETA_HOLD_GAIN := 0.08      # m of ctl-line per (deg-error * s), sign
+                                   # mirrors recovery-test alpha-hold
 const MK_V_COLOR := Color("4a3aa7")
 
 var P: Dictionary                   # model parameters (JSON)
@@ -55,6 +59,7 @@ var wind_base := 12.0
 var sim_t := 0.0
 var gust_t0 := -1e9
 var paused := false
+var trim_hold := false              # pod autotrim: hold theta at THETA_HOLD_DEG
 var mode := "interactive"           # | "selftest" | "demo"
 var out_path := ""
 var demo_frame := 0
@@ -545,10 +550,15 @@ func _handle_input(delta: float) -> void:
 		wind_base = clampf(wind_base + 2.0 * delta, 2.0, 26.0)
 	if Input.is_key_pressed(KEY_DOWN):
 		wind_base = clampf(wind_base - 2.0 * delta, 2.0, 26.0)
+	var manual_trim := Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_S)
 	if Input.is_key_pressed(KEY_W):
 		l0c = clampf(l0c - WINCH_RATE * delta, l0c_trim - 3.0, l0c_trim + 3.0)
 	if Input.is_key_pressed(KEY_S):
 		l0c = clampf(l0c + WINCH_RATE * delta, l0c_trim - 3.0, l0c_trim + 3.0)
+	if trim_hold and not manual_trim:
+		var err := rad_to_deg(s[2]) - THETA_HOLD_DEG
+		l0c = clampf(l0c + THETA_HOLD_GAIN * err * delta,
+			l0c_trim - 3.0, l0c_trim + 3.0)
 	var main_rate := MAIN_WINCH_RATE \
 		* (5.0 if Input.is_key_pressed(KEY_SHIFT) else 1.0)
 	if Input.is_key_pressed(KEY_I):
@@ -566,6 +576,8 @@ func _input(event: InputEvent) -> void:
 				_reset()
 			KEY_SPACE:
 				paused = not paused
+			KEY_T:
+				trim_hold = not trim_hold
 
 
 func _run_demo() -> void:
@@ -795,11 +807,12 @@ func _update_visuals(out: Dictionary) -> void:
 	var gust := "  << GUST >>" if (sim_t - gust_t0) <= 6.0 else ""
 	var dock := "   POD DOCKED — ctl tended, pinning soft!" if docked else ""
 	var winch := l0c - l0c_trim
+	var trim := "  TRIM θ→%.0f°" % THETA_HOLD_DEG if trim_hold else ""
 	hud.text = ("Mk V «Manta» — LIVE sim (GDScript port of l1_trim)\n"
 		+ "t %5.1f s   wind %4.1f m/s%s\n" % [sim_t, wind_now(), gust]
-		+ "alpha %5.1f°   theta %5.1f°   alt %3.0f m   line %3.0f m%s\n"
-			% [last_alpha, rad_to_deg(s[2]), s[1], l0m, dock]
+		+ "alpha %5.1f°   theta %5.1f°   alt %3.0f m   line %3.0f m%s%s\n"
+			% [last_alpha, rad_to_deg(s[2]), s[1], l0m, dock, trim]
 		+ "T_main %5.1f kN   T_ctl %4.1f kN   winch %+0.2f m\n"
 			% [last_tm / 1e3, last_tc / 1e3, winch]
-		+ "Up/Dn wind   W/S trim   I/O main winch (Shift fast)   "
+		+ "Up/Dn wind   W/S trim   T autotrim   I/O main winch (Shift fast)   "
 		+ "G gust   R reset   Space pause")
