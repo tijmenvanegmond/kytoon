@@ -80,11 +80,20 @@ Three-stage pipeline, one file per stage:
   `l1` extra installed; everything else must keep running without it.
   CLI: `python -m kytoon.solvers.l1_aero specs/mk1_sled.yaml`.
 - `kytoon/solvers/l1_body_aero.py` — L1 tier (optional): the wing+body
-  hybrids (Mk II lobe, Mk V hull) through AeroSandbox `AeroBuildup`.
-  Semi-empirical — it *bounds* the hand-picked spec coefficients (rigid
-  smooth body = drag lower bound, no wake blanketing = CL upper bound),
-  it does not certify them. Refuses non-hybrid archetypes.
-  CLI: `python -m kytoon.solvers.l1_body_aero specs/mk5_manta.yaml`.
+  hybrids (Mk II lobe; Mk V-A blimp alternate) through AeroSandbox
+  `AeroBuildup`. Semi-empirical — it *bounds* the hand-picked spec
+  coefficients (rigid smooth body = drag lower bound, no wake blanketing
+  = CL upper bound), it does not certify them. Refuses non-hybrid
+  archetypes (the fat-wing Mk V goes through `l1_aero`/`l1_trim`).
+  CLI: `python -m kytoon.solvers.l1_body_aero specs/mk2_helikite.yaml`.
+- `kytoon/solvers/l1_trim.py` — L1 tier (optional): Mk V's 3-line rig.
+  Closed-form taut-taut trim (force closure → total tension + elevation;
+  moment closure about the main attach → control tension), steering
+  envelope, depower schedule, winchlet budget, and eigenvalues of the
+  linearized 6-state longitudinal dynamics. Key finding baked into its
+  flags: a single-confluence bridle is passively unstable at useful α —
+  the 3-line rig is load-bearing, not optional. Needs the `l1` extra.
+  CLI: `python -m kytoon.solvers.l1_trim specs/mk5_manta.yaml`.
 - `kytoon/solvers/l1_tether.py` — L1 tier (optional): tether as an inverted
   mooring line in air via MoorPy (`System(rho=1.225)`, wind as current).
   Returns `L1TetherReport` (drag/sag line shape, true elevation angles,

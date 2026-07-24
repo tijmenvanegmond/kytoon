@@ -69,8 +69,12 @@ kytoon/solvers/l1_aero.py  L1 aero: parametric C-arc LEI wing from the spec's
                         extra; everything else runs without it.
 kytoon/solvers/l1_tether.py  L1 tether: MoorPy quasi-static line in air
                         (drag + sag + true elevation). Also `l1` extra.
-kytoon/solvers/l1_body_aero.py  L1 hybrid aero: Mk II/V wing+body through
-                        AeroSandbox AeroBuildup — bounds, not benchmarks.
+kytoon/solvers/l1_body_aero.py  L1 hybrid aero: wing+body hybrids (Mk II;
+                        Mk V-A blimp alternate) through AeroSandbox
+                        AeroBuildup — bounds, not benchmarks.
+kytoon/solvers/l1_trim.py  L1 trim/stability: Mk V 3-line rig — closed-form
+                        taut-taut trim map, steering envelope, winchlet
+                        budget, eigen stability. Also `l1` extra.
 kytoon/aero.py          TU Delft V3 benchmark loader + system-polar model.
 kytoon/report.py        CLI: python -m kytoon.report specs/ -o reports/l0.md
 kytoon/viz.py           CLI: python -m kytoon.viz specs/ -o reports/figures
@@ -144,8 +148,9 @@ consciously replace them (and update this file + tests):
 
 ## 4. The test suite is a contract
 
-64 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
-test_geometry, test_l1_body_aero — all passing at last compile. Categories:
+73 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
+test_geometry, test_l1_body_aero, test_l1_trim — all passing at last
+compile. Categories:
 
 - **Physics anchors** (must never change without a source): He net-lift
   constant; torus volume closed form; wrinkle-moment reference case
@@ -158,6 +163,13 @@ test_geometry, test_l1_body_aero — all passing at last compile. Categories:
   coefficient within 15% of the benchmark operating point. The last one
   fails if someone edits spec aero coefficients into unsupported territory —
   that is intentional.
+- **Trim/stability gates** (test_l1_trim.py): Mk V's 3-line rig must trim
+  feasibly at cl_op, steer α from ≤1° to ≥12° at 6/12/20 m/s, hold a
+  depower schedule 4→23 m/s under 75 % WLL with < 8 kN control tension
+  and < 6 m winchlet travel, and keep all fast eigenmodes damped; the
+  closed-form trim must agree with the elastic dynamics (residual accel
+  anchor); the single-confluence-instability and near-vertical-tow flags
+  must stay raised.
 - **L1 pipeline gates** (test_l1_aero.py): the parametric-V3-through-VSM
   polar stays inside its measured error bands (CL_max ±15% of tunnel,
   (L/D)max in [−25%, +10%]); Mk I reaches cl_op pre-stall on its *own*
@@ -279,6 +291,32 @@ legitimately lower per m² and not comparable to AWE traction figures.
   make elevation an L0 output (change §3.4's model + specs + gates) or
   re-justify `elevation_deg` as an operational constraint (winch/traveller
   geometry), not a physics input. Until decided, L0 numbers stand.
+- **Mk V pitch trim: a single-confluence bridle CANNOT fly it, the 3-line
+  rig can (2026-07-24)**: static moment balance on the actual loft (CB
+  3.24 m aft of center c/4 vs aero center ≈1.2 m aft; symmetric untwisted
+  sections → Cm₀ = 0) shows every stable pull point trims nose-down
+  (CL < 0) and every positive-CL trim is unstable — the He centroid sits
+  ~2 m behind any stable pivot and nothing aerodynamic counters it. The
+  asserted 3-line architecture rescues it: with main + control lines taut
+  to a common fairlead, pitch is geometrically pinned. Closed-form
+  taut-taut trim (`l1_trim.py`): α commandable ≈ 0–18° at every wind
+  4–23 m/s, control-pair tension only 3–4 kN (2×8 mm lines, 8× margin),
+  winchlet travel ≈ 3.4 m across the whole envelope; linearized 6-state
+  eigenvalues at 12 m/s: pitch −1.7±3.1j, pendulum −0.27±0.45j, one slow
+  drift +0.07 /s (winch-loop territory). A +50 % 1-cos gust at 12 m/s
+  peaks at 38 kN (57 % WLL) even with winches locked, but α excursions
+  reach ~24° → commanded-α ceiling 14° in the schedule. Control-tether
+  authority is now ANALYZED (was: asserted). New spec fields:
+  `bridle.chord_fraction` (0.35) and `bridle.control_mbl_kn`. Caveats:
+  AeroBuildup Cm at t/c 0.28 (bounds, not certification), longitudinal
+  plane only, tether drag/sag not coupled.
+- **Mk V tow is nearly vertical (2026-07-24)**: the same trim map puts the
+  line at 83–87° elevation across the envelope (buoyancy + high bound-L/D)
+  — at 12 m/s, 24 kN line tension is only ~3–5 kN of *horizontal* pull.
+  The "18 kN tow" headline is line tension, not traction; whether that
+  suffices for the launch-boost role is part of the open §6 elevation
+  conversation (real drag is higher than the bound → real elevation lower,
+  real horizontal tow higher).
 - **L1 confirms the hand-picked aero (2026-07-08)**: solving Mk I's and
   Mk III's *own* parametric geometry with VSM reproduces the spec operating
   points — resultant-force ratio L1/spec 0.99 (Mk I, cl_op 0.8 at α≈8.9°)
@@ -335,6 +373,14 @@ legitimately lower per m² and not comparable to AWE traction figures.
    geometry, billow/twist once membrane results exist.
 7. **L2 (later)**: OpenFOAM ↔ CalculiX/FEniCSx via preCICE for gust and
    capture-state (arm-attached) load cases, final candidate only.
+8. ~~**Mk V trim & steerability**~~ — v1 DONE 2026-07-24:
+   `kytoon/solvers/l1_trim.py` (closed-form taut-taut trim map, eigen
+   stability, winchlet budget; findings in §6). Remaining for v2:
+   lateral/roll + yaw dynamics (steering, figure-eights kill the
+   near-vertical-tow problem?), couple l1_tether drag/sag into the trim
+   map, productize the time-domain gust sim (gust numbers in §6 came from
+   a throwaway probe; re-derive from `l1_trim._derivs` + RK4), Godot
+   replay of sim trajectories.
 
 ---
 

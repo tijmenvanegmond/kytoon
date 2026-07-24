@@ -39,6 +39,8 @@ tether:
   elevation_deg: 50
 bridle:
   positions: [0.12, 0.50, 0.88]   # control / MAIN / control tether stations
+  chord_fraction: 0.35            # lower-surface attach at 35% local chord
+  control_mbl_kn: 50              # 8 mm class per control line
 payload_mass: 60       # gimbaled EO/IR pod + avionics
 rigging_mass: 50       # 3-point tether hardware + control-line winchlets
 dock_capacity: 0

@@ -245,6 +245,14 @@ class Tether(BaseModel):
 class BridleAttachment(BaseModel):
     """Bridle support positions along the spar, as span fractions [0..1]."""
     positions: list[float] = Field(default_factory=lambda: [0.25, 0.75])
+    chord_fraction: float = Field(
+        0.35, gt=0, lt=1,
+        description="chordwise attach station at each position (x/c on the "
+                    "lower surface) — pitch-trim geometry for 3-line rigs")
+    control_mbl_kn: float = Field(
+        50, gt=0,
+        description="MBL of EACH outboard control line [kN] (3-line rigs); "
+                    "the main line is described by `tether`")
 
 
 class KytoonSpec(BaseModel):
