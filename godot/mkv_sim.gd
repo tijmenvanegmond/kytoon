@@ -14,20 +14,33 @@ extends Node3D
 # Interactive (default, run from the editor or `godot --path godot mkv_sim.tscn`):
 #   Up/Down     wind +/- 0.5 m/s
 #   W/S         winchlet in/out (0.5 m/s, changes trim alpha)
+#   I/O         MAIN winch in/out (2 m/s; hold Shift for 10 m/s) — full
+#               recovery to deck. Line stiffness follows EA/L as it
+#               shortens; when the pod reaches the fairlead it "docks"
+#               (standoff clamps, ctl drum auto-tends ~3 kN — pitch
+#               pinning weakens, so depower before you reel deep).
 #   G           fire a +6 m/s 1-cos gust (6 s)
 #   R           reset to trim      Space: pause
 #
 # Demo capture: -- --demo-out=C:/path/frames  (scripted wind/winch sequence)
 
 const DT := 1.0 / 240.0            # physics substep
-const WINCH_RATE := 0.5            # m/s
+const WINCH_RATE := 0.5            # m/s, control winchlet
+const MAIN_WINCH_RATE := 2.0       # m/s, main recovery winch
+const T_TEND := 3000.0             # N, ctl drum constant-tension when docked
 const MK_V_COLOR := Color("4a3aa7")
 
 var P: Dictionary                   # model parameters (JSON)
 var s: Array[float] = []            # [x, z, theta, u, w, om]
 var l0m: float
+var l0m_full: float
 var l0c: float
 var l0c_trim: float
+var ea_main: float                  # line law: k = EA / deployed length
+var ea_ctl: float
+var l_ctl0: float                   # nominal ctl 3D length at full standoff
+var ctl_rest2: float                # l_ctl0^2 - standoff^2 (span+chord part)
+var docked := false
 var wind_base := 12.0
 var sim_t := 0.0
 var gust_t0 := -1e9
@@ -55,6 +68,9 @@ func _ready() -> void:
 		if arg.begins_with("--selftest="):
 			mode = "selftest"
 			out_path = arg.split("=")[1]
+		elif arg.begins_with("--recovery-test="):
+			mode = "recovery"
+			out_path = arg.split("=")[1]
 		elif arg.begins_with("--demo-out="):
 			mode = "demo"
 			out_path = arg.split("=")[1]
@@ -62,6 +78,9 @@ func _ready() -> void:
 	_reset()
 	if mode == "selftest":
 		_run_selftest()
+		return
+	if mode == "recovery":
+		_run_recovery_test()
 		return
 	_build()
 	if mode == "demo":
@@ -72,16 +91,24 @@ func _ready() -> void:
 func _load_params() -> void:
 	var f := FileAccess.open("res://mkv_sim_params.json", FileAccess.READ)
 	P = JSON.parse_string(f.get_as_text())
+	ea_main = P["k_main"] * P["tether_length"]
+	var dx: float = P["p_ctl"][0] - P["p_main"][0]
+	var dz: float = P["p_ctl"][1] - P["p_main"][1]
+	ctl_rest2 = P["y_ctl"] * P["y_ctl"] + dx * dx + dz * dz
+	l_ctl0 = sqrt(P["pod_standoff"] * P["pod_standoff"] + ctl_rest2)
+	ea_ctl = P["k_ctl"] * l_ctl0
 
 
 func _reset() -> void:
 	s.assign(P["init"]["state"])
 	l0m = P["init"]["l0_main"]
+	l0m_full = l0m
 	l0c = P["init"]["l0_ctl"]
 	l0c_trim = l0c
 	wind_base = P["init"]["wind"]
 	sim_t = 0.0
 	gust_t0 = -1e9
+	docked = false
 
 
 func wind_now() -> float:
@@ -148,24 +175,35 @@ func _derivs(st: Array[float], U: float) -> Dictionary:
 	var dist := d.length()
 	var uv := d / dist
 	var t_main := 0.0
+	var k_main: float = ea_main / max(l0m, 5.0)      # line law k = EA/L
 	if dist > l0m:
-		t_main = max(P["k_main"] * (dist - l0m)
+		t_main = max(k_main * (dist - l0m)
 			- P["c_line"] * v_m.dot(uv), 0.0)
 		F += t_main * uv
 		M += rw_m.y * (t_main * uv).x - rw_m.x * (t_main * uv).y
-	# control pair from the pod riding the main line
-	var pod_p := r_m + float(P["pod_standoff"]) * uv
+	# control pair from the pod riding the main line; on recovery the pod
+	# reaches the fairlead and DOCKS: it pins 3 m up-line of the fairlead
+	# (ship-anchored — a kite-relative pod with a slack main invents
+	# momentum) and the drum auto-tends
+	var standoff: float = clampf(dist - 3.0, 0.5, float(P["pod_standoff"]))
+	var is_docked := standoff < float(P["pod_standoff"]) - 0.01
+	var k_ctl: float = ea_ctl / sqrt(standoff * standoff + ctl_rest2)
+	var pod_p := r_m + standoff * uv
 	var rw_c := _rot(P["p_ctl"], th)
 	var r_c := Vector2(x, z) + rw_c
 	var v_c := Vector2(u, w) + om * Vector2(rw_c.y, -rw_c.x)
 	var v := pod_p - r_c
 	var v_len := v.length()
 	var dist3: float = sqrt(v_len * v_len + P["y_ctl"] * P["y_ctl"])
+	var l0c_eff := l0c
+	if is_docked:
+		l0c_eff = max(l0c, dist3 - T_TEND / k_ctl)   # constant-tension tend
 	var t_ctl := 0.0
-	if dist3 > l0c:
+	if dist3 > l0c_eff:
 		var uvc := v / v_len
-		t_ctl = max(P["k_ctl"] * (dist3 - l0c)
-			- P["c_line"] * (v_c - v_m).dot(uvc), 0.0)
+		var v_ref := Vector2.ZERO if is_docked else v_m
+		t_ctl = max(k_ctl * (dist3 - l0c_eff)
+			- P["c_line"] * (v_c - v_ref).dot(uvc), 0.0)
 		var fc := t_ctl * (v_len / dist3) * uvc
 		F += fc
 		M += rw_c.y * fc.x - rw_c.x * fc.y
@@ -177,6 +215,7 @@ func _derivs(st: Array[float], U: float) -> Dictionary:
 			  m_cg / (P["i_yy"] + P["i_added"])],
 		"alpha": alpha, "t_main": t_main, "t_ctl": t_ctl,
 		"r_m": r_m, "r_c": r_c, "pod": pod_p,
+		"docked": is_docked, "dist": dist,
 	}
 
 
@@ -222,10 +261,60 @@ func _run_selftest() -> void:
 	get_tree().quit()
 
 
+# Headless full recovery, 400 -> 20 m at 5 m/s wind. The procedure the
+# sim forced us into (each piece fixes an observed failure):
+#   - tension-governed main reel (speed steps pogo the elastic line)
+#   - ALPHA-hold on the winchlet, not theta-hold: descending at 2 m/s in
+#     5 m/s wind adds ~22 deg of inflow, so the kite must trim nose-down
+#     while descending and re-trim level for the hover
+#   - stop at 20 m line: the concept's buoyant capture hover
+func _run_recovery_test() -> void:
+	wind_base = 5.0          # benign-conditions capture, per the concept
+	var f := FileAccess.open(out_path, FileAccess.WRITE)
+	f.store_line("t,l0m,alpha,theta_deg,z,T_main,T_ctl,docked")
+	var dt := 0.004
+	var rec := 0.0
+	var t_last := 0.0
+	var a_last := 14.0
+	while sim_t < 300.0:
+		var reeling := sim_t > 10.0 and l0m > 20.0
+		if reeling:
+			# tension-governed reel: full rate below 6 kN, stop above 12
+			var gov := clampf((12e3 - t_last) / 6e3, 0.0, 1.0)
+			l0m = max(l0m - MAIN_WINCH_RATE * gov * dt, 20.0)
+		# alpha-hold winchlet: 6 deg on the way down, 3 deg for the hover
+		var a_ref := 6.0 if reeling else 3.0
+		l0c = clampf(l0c + 0.08 * (a_last - a_ref) * dt,
+			l0c_trim - 3.0, l0c_trim + 3.0)
+		var out := _step(dt)
+		t_last = out["t_main"]
+		a_last = out["alpha"]
+		if sim_t >= rec:
+			f.store_line("%.2f,%.1f,%.2f,%.2f,%.2f,%.0f,%.0f,%d"
+				% [sim_t, l0m, out["alpha"], rad_to_deg(s[2]), s[1],
+				   out["t_main"], out["t_ctl"], int(out["docked"])])
+			rec += 1.0
+		if s[1] < 0.0:
+			print("DITCHED at t=%.1f" % sim_t)
+			break
+		if l0m <= 20.0 and sim_t > 240.0:
+			break
+	f.close()
+	print("recovery test written: " + out_path)
+	get_tree().quit()
+
+
 # --- interactive / demo ------------------------------------------------------
 
 func _physics_process(delta: float) -> void:
 	if mode != "interactive" or paused:
+		return
+	if s[1] < 2.0:
+		paused = true
+		if hud:
+			hud.text = ("SPLASH — the kite is in the water. "
+				+ "R to reset.\n(depower less next time: slack control "
+				+ "lines = no attitude authority)")
 		return
 	_handle_input(delta)
 	var out: Dictionary
@@ -244,6 +333,12 @@ func _handle_input(delta: float) -> void:
 		l0c = clampf(l0c - WINCH_RATE * delta, l0c_trim - 3.0, l0c_trim + 3.0)
 	if Input.is_key_pressed(KEY_S):
 		l0c = clampf(l0c + WINCH_RATE * delta, l0c_trim - 3.0, l0c_trim + 3.0)
+	var main_rate := MAIN_WINCH_RATE \
+		* (5.0 if Input.is_key_pressed(KEY_SHIFT) else 1.0)
+	if Input.is_key_pressed(KEY_I):
+		l0m = clampf(l0m - main_rate * delta, 8.0, l0m_full)
+	if Input.is_key_pressed(KEY_O):
+		l0m = clampf(l0m + main_rate * delta, 8.0, l0m_full)
 
 
 func _input(event: InputEvent) -> void:
@@ -377,6 +472,23 @@ func _build() -> void:
 	pod.material_override = pmat
 	add_child(pod)
 
+	# the ship matters once you winch in — 40 m trimaran at the fairlead
+	var gray := StandardMaterial3D.new()
+	gray.albedo_color = Color(0.28, 0.30, 0.34)
+	gray.roughness = 0.85
+	for def in [[Vector3(40, 3.5, 4), Vector3(0, 1.5, 0)],
+				[Vector3(20, 2, 1.6), Vector3(-4, 1.0, 8)],
+				[Vector3(20, 2, 1.6), Vector3(-4, 1.0, -8)],
+				[Vector3(6, 3, 5), Vector3(-12, 4.5, 0)],
+				[Vector3(2, 2.2, 2), Vector3(0, 4.1, 0)]]:
+		var b := MeshInstance3D.new()
+		var bm := BoxMesh.new()
+		bm.size = def[0]
+		b.mesh = bm
+		b.position = def[1]
+		b.material_override = gray
+		add_child(b)
+
 	cam = Camera3D.new()
 	cam.fov = 50.0
 	cam.far = 5000.0
@@ -449,14 +561,18 @@ func _update_visuals(out: Dictionary) -> void:
 	var focus := (pos + pod_pos) * 0.5
 	var az := 0.35 + 0.05 * sim_t
 	cam.position = focus + 80.0 * Vector3(cos(az), 0.06, sin(az))
+	cam.position.y = max(cam.position.y, 4.0)
 	cam.look_at(focus, Vector3.UP)
 
+	docked = out["docked"]
 	var gust := "  << GUST >>" if (sim_t - gust_t0) <= 6.0 else ""
+	var dock := "   POD DOCKED — ctl tended, pinning soft!" if docked else ""
 	var winch := l0c - l0c_trim
 	hud.text = ("Mk V «Manta» — LIVE sim (GDScript port of l1_trim)\n"
 		+ "t %5.1f s   wind %4.1f m/s%s\n" % [sim_t, wind_now(), gust]
-		+ "alpha %5.1f°   theta %5.1f°   alt %3.0f m\n"
-			% [last_alpha, rad_to_deg(s[2]), s[1]]
+		+ "alpha %5.1f°   theta %5.1f°   alt %3.0f m   line %3.0f m%s\n"
+			% [last_alpha, rad_to_deg(s[2]), s[1], l0m, dock]
 		+ "T_main %5.1f kN   T_ctl %4.1f kN   winch %+0.2f m\n"
 			% [last_tm / 1e3, last_tc / 1e3, winch]
-		+ "Up/Dn wind   W/S winch   G gust   R reset   Space pause")
+		+ "Up/Dn wind   W/S trim   I/O main winch (Shift fast)   "
+		+ "G gust   R reset   Space pause")

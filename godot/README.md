@@ -19,13 +19,39 @@ Scenes:
   `kytoon.solvers.l1_trim._derivs` (6-state longitudinal model, RK4 at
   240 Hz) running live. Parameters come from `mkv_sim_params.json`
   (regenerate with `export_sim_params.py` after any spec/solver change).
-  Interactive keys: Up/Down wind, W/S winchlet, G gust, R reset, Space
-  pause. Also `-- --demo-out=DIR` (scripted capture) and
-  `-- --selftest=out.csv` (headless; must match the Python trajectory —
-  verified 2026-07-24 to 0.012° in α / 0.12 % in tension vs
-  `renders/mkv_replay.csv`). The Python solver stays the reference:
-  this file is a port, not a fork — do not add physics here that
-  l1_trim doesn't have.
+  Interactive keys: Up/Down wind, W/S winchlet trim, **I/O main winch**
+  (2 m/s, Shift ×5 — full recovery to deck), G gust, R reset, Space
+  pause. Extra physics beyond l1_trim, same laws: line stiffness follows
+  k = EA/L as the main line reels; the pod docks near the fairlead when
+  the line gets shorter than its standoff (ctl drum auto-tends ~3 kN —
+  pitch pinning goes soft, an honest consequence). Headless modes:
+  `-- --selftest=out.csv` (locked-winch gust; verified 2026-07-24 to
+  0.02° in α / 0.2 % in tension vs `renders/mkv_replay.csv`) and
+  `-- --recovery-test=out.csv` (full 400→20 m winch-in). The Python
+  solver stays the reference for the flight model — do not add aero or
+  buoyancy physics here that l1_trim doesn't have.
+
+## Recovery procedure (what the sim taught us, 2026-07-24)
+
+Winching Mk V from 400 m to the 20 m capture hover at 5 m/s wind fails
+three naive ways before it works; the working procedure is:
+
+1. **Tension-governed reel**, not constant speed — a 2 m/s speed step on
+   400 m of elastic line pogo-bounces the 3-t effective mass (ζ ≈ 0.16)
+   into slack/snap cycles (observed 63–150 kN spikes, tumbling).
+2. **α-hold on the winchlet, not θ-hold** — descending at 2 m/s in 5 m/s
+   wind adds ~22° of inflow; holding attitude runs the wing past stall.
+   The winchlet must trim nose-down on the way down (α ≈ 6°) and re-trim
+   for the hover.
+3. **Stay powered** — a buoyant kite needs no depower to descend (the
+   winch trivially beats +2.8 kN net buoyancy) and slack control lines
+   mean no attitude authority at all.
+
+Result: 190 s descent, tension never above ~10 kN, ending in a buoyant
+hover at ~23 m. Open issue: hover attitude after pod-dock is only softly
+constrained (tended drum = weak pitch pinning at near-zero airspeed) —
+the capture-state attitude needs the pod modeled as its own node, or the
+L2 tier.
 
 ## Run (Windows, GPU, window flashes briefly)
 

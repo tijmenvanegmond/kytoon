@@ -326,6 +326,18 @@ legitimately lower per m² and not comparable to AWE traction figures.
   ≤ 4.2 kN. Also deletes 2×350 m of control-line drag/weight (~28 kg)
   for a pod of comparable mass hanging on the line. Open: pod swing mode
   (modeled as riding the line rigidly), pod power/data.
+- **Mk V recovery procedure, from the Godot sim layer (2026-07-24)**:
+  full winch-in 400 → 20 m at 5 m/s (godot/mkv_sim.gd
+  `--recovery-test`, a validated GDScript port of l1_trim's dynamics
+  with k = EA/L line law) only works as: tension-governed main reel
+  (speed steps pogo the elastic line — ζ ≈ 0.16, observed 60–150 kN
+  snap loads), α-hold on the winchlet rather than attitude-hold
+  (2 m/s descent in 5 m/s wind adds ~22° inflow — θ must go nose-down
+  in descent), and no depower (buoyant kite descends under winch pull;
+  slack control lines = no attitude authority). Clean run: 190 s,
+  T ≤ 10 kN, buoyant hover at ~23 m. OPEN: hover attitude after the pod
+  docks is softly constrained (tended drum, near-zero q) — capture-state
+  attitude needs pod-as-node dynamics or L2. Details in godot/README.md.
 - **Mk V tow is nearly vertical (2026-07-24)**: the same trim map puts the
   line at 83–87° elevation across the envelope (buoyancy + high bound-L/D)
   — at 12 m/s, 24 kN line tension is only ~3–5 kN of *horizontal* pull.
