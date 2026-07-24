@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://cahfotqr7vt6r"]
+
+[ext_resource type="Script" path="res://fleet_capture.gd" id="1"]
+
+[node name="Fleet" type="Node3D"]
+script = ExtResource("1")

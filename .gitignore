@@ -5,3 +5,9 @@ __pycache__/
 .pytest_cache/
 _extracted/
 files.zip
+
+# Godot editor cache / import artifacts
+godot/.godot/
+godot/frames/
+godot/renders/
+*.import
