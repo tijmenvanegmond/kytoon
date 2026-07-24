@@ -14,14 +14,20 @@ import numpy as np
 import pytest
 
 from kytoon.solvers.l1_trim import (
+    G,
     HAS_L1,
     TENSION_FRAC,
     _derivs,
     aero_table,
+    attach_point,
     ctl_line_length,
     eigenvalues,
+    hang_moment,
+    hang_trim,
+    level_chord_fraction,
     line_stiffnesses,
     mass_props,
+    pendant_for_level,
     reconstruct_rig,
     solve,
     trim_point,
@@ -166,9 +172,89 @@ def test_locked_winch_gust_keeps_stall_margin(specs, rep):
         f"did not return to trim: {alpha:.1f}° vs {tp.alpha_deg:.1f}°"
 
 
+# --- capture-hover hang statics ------------------------------------------
+
+@needs_l1
+def test_zero_q_hang_anchor(specs, rep):
+    """Physics anchor: at zero q the kite hangs where the gravity+buoyancy
+    resultant passes through the main attach — hand formula
+    tan(theta) = -sum(dx*Fz)/sum(dz*Fz) over the body-frame arms."""
+    s = specs["V"]
+    props = mass_props(s)
+    p = attach_point(s, s.bridle.positions[1])
+    num, den = 0.0, 0.0
+    for pb, fz in ((props.r_skin, -props.m_skin * G),
+                   (props.r_cb, props.buoyancy_n)):
+        num += (pb[0] - p[0]) * fz
+        den += (pb[1] - p[1]) * fz
+    expect = math.degrees(math.atan2(-num, den))
+    roots = hang_trim(s, props, aero_table(s), 0.0)
+    stable = [t for t, ok in roots if ok]
+    assert len(stable) == 1
+    assert stable[0] == pytest.approx(expect, abs=0.5)
+    assert rep.hang_theta_deg == pytest.approx(stable[0], abs=0.1)
+    assert -45 < stable[0] < -35          # current rig hangs ~41° nose-down
+
+
+@needs_l1
+def test_hang_matches_sim_recovery_endgame(specs):
+    """Cross-model regression: the Godot sim's recovery run ended at
+    theta ≈ -57° in 5 m/s residual wind (still converging at cutoff);
+    the static hang with the same table clamp must land nearby."""
+    s = specs["V"]
+    roots = hang_trim(s, mass_props(s), aero_table(s), 5.0)
+    stable = [t for t, ok in roots if ok]
+    assert len(stable) == 1
+    assert abs(stable[0] - (-57.0)) < 4.0
+
+
+@needs_l1
+def test_te_pendant_levels_the_hover(specs):
+    """Option B: an aft capture pendant pinned by net buoyancy — both
+    lines must stay loaded at a level hang."""
+    s = specs["V"]
+    props = mass_props(s)
+    t_pend, t_main = pendant_for_level(s, props, aero_table(s), 0.95)
+    assert 0.4e3 < t_pend < 1.2e3
+    assert t_main > 1.5e3
+
+
+@needs_l1
+def test_ctl_drum_lock_can_pin_level_hover(specs):
+    """Option C: the swept outboard stations sit ~2.6 m aft of the main
+    attach, so a LOCKED (not tension-tended) ctl drum can hold a level
+    hang — feasible but with thin main-line margin."""
+    s = specs["V"]
+    props = mass_props(s)
+    table = aero_table(s)
+    m0 = hang_moment(s, props, table, 0.0, wind=0.0)
+    p_main = attach_point(s, s.bridle.positions[1])
+    p_ctl = attach_point(s, s.bridle.positions[2])
+    # ctl pulls straight down at the aft station: M = t * (x_ctl - x_main)
+    t_ctl = -m0 / (p_ctl[0] - p_main[0])
+    b_net = props.buoyancy_n - props.m_total * G
+    t_main = b_net - t_ctl
+    assert 1.5e3 < t_ctl < 3.5e3
+    assert 0.0 < t_main < 1.0e3           # thin — why option B ranks first
+
+
+@needs_l1
+def test_level_attach_station_conflicts_with_flight(specs):
+    """Option A falsified: the chord station that levels the hang cannot
+    fly the mission (documents the flying-trim/hang-trim conflict)."""
+    s = specs["V"]
+    f_level = level_chord_fraction(s, mass_props(s))
+    assert f_level == pytest.approx(0.47, abs=0.02)
+    leveled = s.model_copy(deep=True)
+    leveled.bridle.chord_fraction = f_level
+    rep = solve(leveled)
+    assert not rep.op.feasible or len(rep.mission) < 10
+
+
 @needs_l1
 def test_single_confluence_instability_stays_flagged(rep):
     assert any("passively UNSTABLE" in f for f in rep.flags)
+    assert any("capture hover hangs" in f for f in rep.flags)
 
 
 @needs_l1

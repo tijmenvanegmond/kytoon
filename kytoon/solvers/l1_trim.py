@@ -336,6 +336,96 @@ def schedule(spec: KytoonSpec, props: MassProps, table,
 
 
 # ---------------------------------------------------------------------------
+# capture-hover hang (zero/low-q statics — the winched-in state)
+
+def hang_moment(spec: KytoonSpec, props: MassProps, table,
+                theta_deg: float, wind: float = 0.0) -> float:
+    """Static pitch moment [N·m] about the loaded MAIN attach for a kite
+    hanging at rest at attitude theta. At zero q, pitch can only be pinned
+    by chordwise separation of loaded attach points — Mk V's three
+    stations are spanwise, so the hover hangs at whatever attitude puts
+    the gravity+buoyancy resultant through the main attach.
+
+    With wind > 0 the (table-clamped) aero at alpha = theta is added; the
+    clamp matches the sim's, so hang_trim(wind=5) is the apples-to-apples
+    regression against the sim's recovery endgame. Real post-stall aero
+    differs — treat wind-on hang angles as model-consistent, not truth."""
+    p_main = attach_point(spec, spec.bridle.positions[1])
+    R = _rotm(math.radians(theta_deg))
+    rP = R @ p_main
+    m = 0.0
+    if wind > 1e-6:
+        cl, cd, cm = _coeffs(table, theta_deg)
+        S = spec.canopy.area
+        q = 0.5 * RHO_AIR * wind**2
+        f_aero = q * S * np.array([cd, cl])
+        m += q * S * (S / spec.canopy.span) * cm
+        m += _cross2(-rP, f_aero)
+    for pb, fz in ((props.r_skin, -props.m_skin * G),
+                   (p_main, -props.m_pod * G),
+                   (props.r_cb, props.buoyancy_n)):
+        rw = R @ pb
+        m += _cross2(rw - rP, np.array([0.0, fz]))
+    return m
+
+
+def hang_trim(spec: KytoonSpec, props: MassProps, table,
+              wind: float = 0.0) -> list[tuple[float, bool]]:
+    """All hang attitudes over the full circle: [(theta_deg, stable)]."""
+    grid = np.arange(-178.0, 182.0, 2.0)
+    vals = np.array([hang_moment(spec, props, table, float(t), wind)
+                     for t in grid])
+    roots = []
+    for i in range(len(grid) - 1):
+        if vals[i] == 0.0 or vals[i] * vals[i + 1] < 0:
+            lo, hi = float(grid[i]), float(grid[i + 1])
+            for _ in range(40):
+                mid = 0.5 * (lo + hi)
+                if hang_moment(spec, props, table, mid, wind) \
+                        * hang_moment(spec, props, table, lo, wind) <= 0:
+                    hi = mid
+                else:
+                    lo = mid
+            theta = 0.5 * (lo + hi)
+            slope = (vals[i + 1] - vals[i]) / (grid[i + 1] - grid[i])
+            roots.append((theta, slope < 0))
+    return roots
+
+
+def level_chord_fraction(spec: KytoonSpec, props: MassProps) -> float:
+    """Chord station whose zero-q hang is level (pod at the attach):
+    put the attach under the gravity+buoyancy resultant at theta = 0."""
+    b = props.buoyancy_n
+    ws = props.m_skin * G
+    x_req = (b * props.r_cb[0] - ws * props.r_skin[0]) / (b - ws)
+    c = spec.fat_wing.chord
+    return (x_req + 0.25 * c) / c
+
+
+def pendant_for_level(spec: KytoonSpec, props: MassProps, table,
+                      pendant_fraction: float = 0.95,
+                      theta_deg: float = 0.0) -> tuple[float, float]:
+    """Fore–aft capture pendant: tension [N] a straight-down line at
+    `pendant_fraction` of the center chord must carry to hold the zero-q
+    hang at theta, and the main-line tension left over. Both must be
+    positive for a pitch-pinned two-line hang (the net buoyancy is what
+    keeps them loaded)."""
+    m0 = hang_moment(spec, props, table, theta_deg, wind=0.0)
+    R = _rotm(math.radians(theta_deg))
+    fw = spec.fat_wing
+    p_pend = np.array([-0.25 * fw.chord + pendant_fraction * fw.chord,
+                       -_naca_halfz(min(pendant_fraction, 0.98),
+                                    fw.thickness_ratio, fw.chord)])
+    rP = R @ attach_point(spec, spec.bridle.positions[1])
+    dx = float((R @ p_pend - rP)[0])
+    if abs(dx) < 1e-6:
+        return math.inf, -math.inf
+    t_pend = -m0 / dx
+    b_net = props.buoyancy_n - props.m_total * G
+    return t_pend, b_net - t_pend
+
+
+# ---------------------------------------------------------------------------
 # eigen-stability of the taut-taut rig at a trim point
 
 def _derivs(spec, props, table, s, l0m, l0c, wind, k_main, k_ctl,
@@ -451,6 +541,7 @@ class L1TrimReport:
     bands: dict[float, tuple[float, float] | None]
     mission: list[TrimPoint]
     eigs: np.ndarray                   # at the 12 m/s mission trim
+    hang_theta_deg: float = math.nan   # stable zero-q capture-hover hang
     flags: list[str] = field(default_factory=list)
 
     @property
@@ -485,6 +576,8 @@ def solve(spec: KytoonSpec) -> L1TrimReport:
     mission = schedule(spec, props, table)
     tp12 = next((tp for tp in mission if tp.wind == 12), op)
     eigs = eigenvalues(spec, props, table, tp12)
+    hang = next((t for t, stable in hang_trim(spec, props, table, 0.0)
+                 if stable), math.nan)
 
     flags = [
         "AeroBuildup drag is a LOWER bound → elevation is an upper bound, "
@@ -511,7 +604,15 @@ def solve(spec: KytoonSpec) -> L1TrimReport:
             f"trim elevation {op.elevation_deg:.0f}° — near-vertical line; "
             "horizontal tow is a small fraction of line tension "
             "(feeds the §6 'elevation is an output' conversation)")
-    return L1TrimReport(spec, props, op, bands, mission, eigs, flags)
+    if abs(hang) > 15:
+        flags.append(
+            f"capture hover hangs {hang:.0f}° nose-"
+            + ("down" if hang < 0 else "up")
+            + " at zero q (spanwise stations can't pin pitch when aero "
+            "dies) — level options: aft capture pendant "
+            "(pendant_for_level) or lock the ctl drum through docking "
+            "(sweep gives the tips a 2.6 m chordwise arm)")
+    return L1TrimReport(spec, props, op, bands, mission, eigs, hang, flags)
 
 
 # ---------------------------------------------------------------------------
@@ -548,6 +649,8 @@ def _summary(rep: L1TrimReport) -> str:
     lines.append(f"- eigenvalues @12 m/s trim: max Re (fast modes) "
                  f"{rep.max_fast_re:+.2f} /s, slow drift "
                  f"{rep.max_slow_re:+.3f} /s")
+    lines.append(f"- capture-hover hang (zero q): "
+                 f"{rep.hang_theta_deg:+.1f}°")
     for f in rep.flags:
         lines.append(f"- ⚠ {f}")
     return "\n".join(lines)

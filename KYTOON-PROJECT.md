@@ -148,7 +148,7 @@ consciously replace them (and update this file + tests):
 
 ## 4. The test suite is a contract
 
-76 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
+81 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
 test_geometry, test_l1_body_aero, test_l1_trim — all passing at last
 compile. Categories:
 
@@ -171,7 +171,12 @@ compile. Categories:
   +50 % gust must keep ≥5° stall margin and return to trim; the ship-rig
   regression (undamped drift without the pod) is also gated, as are the
   closed-form-vs-dynamics anchor and the single-confluence-instability
-  and near-vertical-tow flags.
+  and near-vertical-tow flags. Capture-hover hang statics (2026-07-24):
+  the zero-q hang anchor (hand formula), the wind-on hang matching the
+  Godot sim's recovery endgame (cross-model regression, ±4°), and one
+  gate per rigging option — TE pendant levels the hover (0.4–1.2 kN,
+  main stays loaded), locked ctl drum can pin level (thin main margin),
+  and the hang-leveling attach station cannot fly the mission.
 - **L1 pipeline gates** (test_l1_aero.py): the parametric-V3-through-VSM
   polar stays inside its measured error bands (CL_max ±15% of tunnel,
   (L/D)max in [−25%, +10%]); Mk I reaches cl_op pre-stall on its *own*
@@ -326,6 +331,25 @@ legitimately lower per m² and not comparable to AWE traction figures.
   ≤ 4.2 kN. Also deletes 2×350 m of control-line drag/weight (~28 kg)
   for a pod of comparable mass hanging on the line. Open: pod swing mode
   (modeled as riding the line rigidly), pod power/data.
+- **Capture-hover hang is closed-form, and the rigging shortlist is
+  solved (2026-07-24)**: at zero q a hanging buoyant body settles where
+  the gravity+buoyancy resultant passes through the loaded attach —
+  algebra, not dynamics (`l1_trim.hang_trim`). Mk V's current rig hangs
+  **−41° nose-down** (−54° with the 5 m/s residual wind — matching the
+  Godot sim's recovery endgame within 4°, which was still converging at
+  cutoff; the sim's −57° "mystery" is just this hang). Spanwise stations
+  can't pin pitch when aero dies. Options, each one evaluation:
+  (a) moving the attach to the hang-leveling station f = 0.47 is
+  FALSIFIED — flight trim infeasible there (gated); (b) **aft capture
+  pendant** at ~0.95c: 0.78 kN holds a level hang with 2.0 kN left on
+  the main — cheapest robust fix, and net buoyancy is what keeps both
+  lines loaded; (c) **lock the ctl drum through docking** instead of
+  tension-tending: the 15° sweep puts the outboard stations 2.6 m aft
+  of the main attach, so the pair can pin a level hang at T_ctl ≈
+  2.4 kN — zero new hardware but T_main margin only ~0.4 kN. Ranking:
+  b > c > a. Still open for the sim pass (statics can't answer it):
+  the pendulum excursion envelope in ship frame on ~20 m of line — the
+  spec the capture arm's motion planner actually needs.
 - **Mk V recovery procedure, from the Godot sim layer (2026-07-24)**:
   full winch-in 400 → 20 m at 5 m/s (godot/mkv_sim.gd
   `--recovery-test`, a validated GDScript port of l1_trim's dynamics
@@ -405,12 +429,15 @@ legitimately lower per m² and not comparable to AWE traction figures.
    2026-07-24: `kytoon/solvers/l1_trim.py` (closed-form taut-taut trim
    map, eigen stability, winchlet budget, `bridle.pod_standoff_m`
    support; findings in §6; locked-winch gust now gated in
-   test_l1_trim). Remaining for v2: pod swing-mode dynamics (pod as its
-   own node), lateral/roll + yaw (steering, figure-eights vs the
-   near-vertical-tow problem), couple l1_tether drag/sag into the trim
-   map, cross-check the Godot sim's lumped-mass segmented tether
+   test_l1_trim). Remaining for v2: pick the capture rigging (pendant
+   vs drum-lock, §6 hang finding) and sim the winner's transient into
+   the hover + the pendulum excursion envelope in ship frame (the
+   capture arm's chase spec); pod swing-mode dynamics (pod as its own
+   node); lateral/roll + yaw (steering, figure-eights vs the
+   near-vertical-tow problem); couple l1_tether drag/sag into the trim
+   map; cross-check the Godot sim's lumped-mass segmented tether
    (godot/mkv_sim.gd: sag/weight/drag/honest slack) against l1_tether's
-   MoorPy statics, Godot replay of new trajectories (viewer exists:
+   MoorPy statics; Godot replay of new trajectories (viewer exists:
    `godot/mkv_replay.*`).
 
 ---

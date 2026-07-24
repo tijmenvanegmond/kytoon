@@ -55,10 +55,15 @@ three naive ways before it works; the working procedure is:
    mean no attitude authority at all.
 
 Result: 190 s descent, tension never above ~10 kN, ending in a buoyant
-hover at ~23 m. Open issue: hover attitude after pod-dock is only softly
-constrained (tended drum = weak pitch pinning at near-zero airspeed) —
-the capture-state attitude needs the pod modeled as its own node, or the
-L2 tier.
+hover at ~23 m. The hover attitude itself is NOT a sim problem — it is
+closed-form statics (`l1_trim.hang_trim`): the current rig hangs −41°
+nose-down at zero q (−54° with the 5 m/s residual, matching this sim's
+endgame within 4°). Level-hover options are solved and gated in
+test_l1_trim (aft pendant ≈ 0.8 kN, or lock the ctl drum through
+docking instead of the tension-tend implemented here). What the sim
+still owes once the rigging is chosen: the winner's transient into the
+hover and the pendulum excursion envelope in ship frame — the capture
+arm's actual chase spec.
 
 ## Run (Windows, GPU, window flashes briefly)
 
