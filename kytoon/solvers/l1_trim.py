@@ -17,9 +17,12 @@ Model (longitudinal plane, all closed-form except the eigencheck):
   * Lines: main (spec.tether) at the center bridle station, the two
     control lines (spec.bridle.control_mbl_kn each) lumped at the
     outboard stations' chordwise offset. All attach on the lower surface
-    at spec.bridle.chord_fraction of local chord. Both run to one
-    fairlead `FAIRLEAD_HEIGHT` above water, `tether.length` away — at
-    that distance the lines are near-parallel, which makes the taut-taut
+    at spec.bridle.chord_fraction of local chord. With
+    spec.bridle.pod_standoff_m set, the control pair runs to a winchlet
+    pod riding the main line that far below the kite (short, stiff
+    steering lines — the passively-stable configuration); otherwise both
+    run to the ship fairlead `FAIRLEAD_HEIGHT` above water,
+    `tether.length` away. Near-parallel geometry keeps the taut-taut
     trim closed-form:
 
       force closure   T_vec = -(F_aero + W + B)   → total tension, elevation
@@ -202,6 +205,31 @@ def mass_props(spec: KytoonSpec) -> MassProps:
         m_added_z=m_az, i_added=i_az)
 
 
+def ctl_span_offset(spec: KytoonSpec) -> float:
+    """Spanwise (out-of-plane) offset of each outboard attach [m]."""
+    return (spec.bridle.positions[2] - 0.5) * spec.fat_wing.span
+
+
+def ctl_line_length(spec: KytoonSpec) -> float:
+    """3D length of ONE control line: pod→outboard attach when a pod is
+    fitted, else the full tether run to the ship."""
+    if spec.bridle.pod_standoff_m is None:
+        return spec.tether.length
+    dxz = attach_point(spec, spec.bridle.positions[2]) \
+        - attach_point(spec, spec.bridle.positions[1])
+    return math.sqrt(spec.bridle.pod_standoff_m ** 2
+                     + ctl_span_offset(spec) ** 2 + float(dxz @ dxz))
+
+
+def line_stiffnesses(spec: KytoonSpec) -> tuple[float, float]:
+    """(k_main, k_ctl_pair) [N/m]; EA from Dyneema strain-at-MBL."""
+    k_main = (spec.tether.mbl_kn * 1e3 / DYNEEMA_STRAIN_MBL) \
+        / spec.tether.length
+    k_ctl = (2 * spec.bridle.control_mbl_kn * 1e3 / DYNEEMA_STRAIN_MBL) \
+        / ctl_line_length(spec)
+    return k_main, k_ctl
+
+
 def _rotm(th: float) -> np.ndarray:
     c, s = math.cos(th), math.sin(th)
     return np.array([[c, s], [-s, c]])
@@ -222,9 +250,10 @@ class TrimPoint:
     cl: float
     t_total_n: float
     t_main_n: float
-    t_ctl_n: float            # lumped pair
+    t_ctl_n: float            # lumped pair (sum of both line tensions)
     elevation_deg: float
-    dl0_ctl_m: float          # control rest length relative to main
+    dl0_ctl_m: float          # drum setting: rest length (pod) or offset
+                              # vs the main line (ship winches)
     feasible: bool
 
 
@@ -251,16 +280,31 @@ def trim_point(spec: KytoonSpec, props: MassProps, table,
     # pod sits at the main attach → no arm
     m += _cross2(R @ props.r_cb - p_main,
                  np.array([0.0, props.buoyancy_n]))
-    arm = _cross2(p_ctl - p_main, u_hat)
-    t_ctl = -m / arm
-    t_main = t_tot - t_ctl
-
-    k_main = (spec.tether.mbl_kn * 1e3 / DYNEEMA_STRAIN_MBL) \
-        / spec.tether.length
-    k_ctl = (2 * spec.bridle.control_mbl_kn * 1e3 / DYNEEMA_STRAIN_MBL) \
-        / spec.tether.length
-    delta_geom = float((p_ctl - p_main) @ (-u_hat))
-    dl0 = delta_geom - (t_ctl / k_ctl - t_main / k_main)
+    k_main, k_ctl = line_stiffnesses(spec)
+    d_pod = spec.bridle.pod_standoff_m
+    if d_pod is None:
+        # ship winches: 400 m away, lines effectively parallel
+        u_ctl, cos_splay = u_hat, 1.0
+    else:
+        pod = p_main + d_pod * u_hat          # pod rides the main line
+        v = pod - p_ctl                       # in-plane leg
+        v_len = float(np.linalg.norm(v))
+        u_ctl = v / v_len
+        cos_splay = v_len / math.hypot(v_len, ctl_span_offset(spec))
+    arm = _cross2(p_ctl - p_main, u_ctl)
+    f_inplane = -m / arm                      # required in-plane pair force
+    t_ctl = f_inplane / cos_splay             # what the drum/lines carry
+    t_main = t_tot - f_inplane                # closure along u_hat (≈, the
+                                              # few-degree tilt is 2nd order)
+    if d_pod is None:
+        delta_geom = float((p_ctl - p_main) @ (-u_hat))
+        dl0 = delta_geom - (t_ctl / k_ctl - t_main / k_main)
+    else:
+        # drum at the pod; pod slides out as the main line strains
+        standoff = d_pod * (1 + t_main / (k_main * spec.tether.length))
+        pod = p_main + standoff * u_hat
+        v_len = float(np.linalg.norm(pod - p_ctl))
+        dl0 = math.hypot(v_len, ctl_span_offset(spec)) - t_ctl / k_ctl
 
     ctl_wll = 2 * spec.bridle.control_mbl_kn * 1e3 / spec.tether.safety_factor
     feasible = (t_ctl > 300.0 and t_main > 300.0 and t_ctl < ctl_wll
@@ -317,20 +361,37 @@ def _derivs(spec, props, table, s, l0m, l0c, wind, k_main, k_ctl,
         rw = R @ pb
         F = F + fv
         M += _cross2(rw, fv)
-    for pb, l0, k in ((p_main_b, l0m, k_main),
-                      (attach_point(spec, spec.bridle.positions[2]),
-                       l0c, k_ctl)):
-        rw = R @ pb
-        r_att = np.array([x, z]) + rw
-        v_att = np.array([u, w]) + om * np.array([rw[1], -rw[0]])
-        d = anchor - r_att
-        dist = float(np.linalg.norm(d))
-        uv = d / dist
-        stretch = dist - l0
-        if stretch > 0:
-            T = max(k * stretch - c_line * float(v_att @ uv), 0.0)
-            F = F + T * uv
-            M += _cross2(rw, T * uv)
+    # main line to the ship fairlead
+    rw_m = R @ p_main_b
+    r_m = np.array([x, z]) + rw_m
+    v_m = np.array([u, w]) + om * np.array([rw_m[1], -rw_m[0]])
+    d = anchor - r_m
+    dist = float(np.linalg.norm(d))
+    uv = d / dist
+    if dist > l0m:
+        T = max(k_main * (dist - l0m) - c_line * float(v_m @ uv), 0.0)
+        F = F + T * uv
+        M += _cross2(rw_m, T * uv)
+    # control pair: anchored at the pod (rides the main line) or the ship
+    if spec.bridle.pod_standoff_m is None:
+        pod, v_pod, y_off = anchor, np.zeros(2), 0.0
+    else:
+        pod = r_m + spec.bridle.pod_standoff_m * uv
+        v_pod = v_m                    # rides the line (swing mode ignored)
+        y_off = ctl_span_offset(spec)
+    rw_c = R @ attach_point(spec, spec.bridle.positions[2])
+    r_c = np.array([x, z]) + rw_c
+    v_c = np.array([u, w]) + om * np.array([rw_c[1], -rw_c[0]])
+    v = pod - r_c
+    v_len = float(np.linalg.norm(v))
+    dist3 = math.hypot(v_len, y_off)
+    if dist3 > l0c:
+        uvc = v / v_len
+        T3 = max(k_ctl * (dist3 - l0c)
+                 - c_line * float((v_c - v_pod) @ uvc), 0.0)
+        Fc = T3 * (v_len / dist3) * uvc          # in-plane component
+        F = F + Fc
+        M += _cross2(rw_c, Fc)
     rcg = R @ props.r_cg
     m_cg = M - _cross2(rcg, F)
     return np.array([u, w, om,
@@ -339,27 +400,36 @@ def _derivs(spec, props, table, s, l0m, l0c, wind, k_main, k_ctl,
                      m_cg / (props.i_yy + props.i_added)])
 
 
-def eigenvalues(spec: KytoonSpec, props: MassProps, table,
-                tp: TrimPoint) -> np.ndarray:
-    """Eigenvalues of the linearized taut-taut dynamics at a trim point."""
+def reconstruct_rig(spec: KytoonSpec, tp: TrimPoint
+                    ) -> tuple[np.ndarray, float, float, float, float]:
+    """World pose + rest lengths at a closed-form trim, for the dynamics:
+    (state, l0_main, l0_ctl, k_main, k_ctl)."""
     anchor = np.array([0.0, FAIRLEAD_HEIGHT])
     a = math.radians(tp.alpha_deg)
     u_hat = np.array([math.cos(math.radians(tp.elevation_deg)),
                       math.sin(math.radians(tp.elevation_deg))])
-    r_main_w = anchor + u_hat * spec.tether.length
     R = _rotm(a)
-    x0 = r_main_w - R @ attach_point(spec, spec.bridle.positions[1])
-    k_main = (spec.tether.mbl_kn * 1e3 / DYNEEMA_STRAIN_MBL) \
-        / spec.tether.length
-    k_ctl = (2 * spec.bridle.control_mbl_kn * 1e3 / DYNEEMA_STRAIN_MBL) \
-        / spec.tether.length
-    dm = float(np.linalg.norm(
-        anchor - (x0 + R @ attach_point(spec, spec.bridle.positions[1]))))
-    dc = float(np.linalg.norm(
-        anchor - (x0 + R @ attach_point(spec, spec.bridle.positions[2]))))
+    p_main = R @ attach_point(spec, spec.bridle.positions[1])
+    p_ctl = R @ attach_point(spec, spec.bridle.positions[2])
+    x0 = anchor + u_hat * spec.tether.length - p_main
+    k_main, k_ctl = line_stiffnesses(spec)
+    dm = float(np.linalg.norm(anchor - (x0 + p_main)))
     l0m = dm - tp.t_main_n / k_main
+    if spec.bridle.pod_standoff_m is None:
+        dc = float(np.linalg.norm(anchor - (x0 + p_ctl)))
+    else:
+        pod = (x0 + p_main) - spec.bridle.pod_standoff_m * u_hat
+        dc = math.hypot(float(np.linalg.norm(pod - (x0 + p_ctl))),
+                        ctl_span_offset(spec))
     l0c = dc - tp.t_ctl_n / k_ctl
-    s0 = np.array([x0[0], x0[1], a, 0.0, 0.0, 0.0])
+    return (np.array([x0[0], x0[1], a, 0.0, 0.0, 0.0]),
+            l0m, l0c, k_main, k_ctl)
+
+
+def eigenvalues(spec: KytoonSpec, props: MassProps, table,
+                tp: TrimPoint) -> np.ndarray:
+    """Eigenvalues of the linearized taut-taut dynamics at a trim point."""
+    s0, l0m, l0c, k_main, k_ctl = reconstruct_rig(spec, tp)
     J = np.zeros((6, 6))
     for j in range(6):
         dp = np.zeros(6)
@@ -425,6 +495,17 @@ def solve(spec: KytoonSpec) -> L1TrimReport:
         "single-confluence bridle is passively UNSTABLE at useful alpha "
         "— the 3-line rig is load-bearing, not optional",
     ]
+    if spec.bridle.pod_standoff_m is not None:
+        flags.append(
+            f"winchlet pod at {spec.bridle.pod_standoff_m:.0f} m standoff: "
+            "pod modeled as riding the main line rigidly (swing mode not "
+            "analyzed); pod hardware mass hangs on the line, outside the "
+            "kite mass budget")
+    else:
+        flags.append(
+            "ship-based control winches: elastic pitch pinning margin is "
+            "only ~1.3× the passive divergence — consider "
+            "bridle.pod_standoff_m")
     if op.elevation_deg > 75:
         flags.append(
             f"trim elevation {op.elevation_deg:.0f}° — near-vertical line; "
@@ -455,7 +536,13 @@ def _summary(rep: L1TrimReport) -> str:
             f"    {tp.wind:4.0f} m/s  α {tp.alpha_deg:5.2f}°  CL {tp.cl:.2f}"
             f"  T {tp.t_total_n/1e3:5.1f} kN  elev {tp.elevation_deg:.0f}°"
             f"  ctl {tp.t_ctl_n/1e3:.1f} kN  ΔL0 {tp.dl0_ctl_m:+.2f} m")
-    lines.append(f"- winchlet: travel {rep.winchlet_travel_m:.1f} m across "
+    _, k_ctl = line_stiffnesses(s)
+    rig = ("ship winches, %.0f m lines" % s.tether.length
+           if s.bridle.pod_standoff_m is None
+           else "pod @ %.0f m standoff, %.0f m lines"
+           % (s.bridle.pod_standoff_m, ctl_line_length(s)))
+    lines.append(f"- rig: {rig}; ctl-pair stiffness {k_ctl/1e3:.1f} kN/m")
+    lines.append(f"- winchlet: travel {rep.winchlet_travel_m:.2f} m across "
                  "the schedule, tension "
                  f"≤ {max(tp.t_ctl_n for tp in rep.mission)/1e3:.1f} kN")
     lines.append(f"- eigenvalues @12 m/s trim: max Re (fast modes) "

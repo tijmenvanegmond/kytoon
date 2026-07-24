@@ -90,9 +90,12 @@ Three-stage pipeline, one file per stage:
   Closed-form taut-taut trim (force closure → total tension + elevation;
   moment closure about the main attach → control tension), steering
   envelope, depower schedule, winchlet budget, and eigenvalues of the
-  linearized 6-state longitudinal dynamics. Key finding baked into its
-  flags: a single-confluence bridle is passively unstable at useful α —
-  the 3-line rig is load-bearing, not optional. Needs the `l1` extra.
+  linearized 6-state longitudinal dynamics. Supports the winchlet pod
+  riding the main tether (`bridle.pod_standoff_m` — short stiff steering
+  lines; this is what makes Mk V passively stable). Key findings baked
+  into its flags: a single-confluence bridle is passively unstable at
+  useful α, and ship-based winches leave an undamped drift mode. Needs
+  the `l1` extra.
   CLI: `python -m kytoon.solvers.l1_trim specs/mk5_manta.yaml`.
 - `kytoon/solvers/l1_tether.py` — L1 tier (optional): tether as an inverted
   mooring line in air via MoorPy (`System(rho=1.225)`, wind as current).

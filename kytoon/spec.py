@@ -253,6 +253,11 @@ class BridleAttachment(BaseModel):
         50, gt=0,
         description="MBL of EACH outboard control line [kN] (3-line rigs); "
                     "the main line is described by `tether`")
+    pod_standoff_m: float | None = Field(
+        None, gt=0,
+        description="if set, the control winchlet rides the main tether "
+                    "this far below the kite (short steering lines from a "
+                    "pod); None = winches on the ship, full-length lines")
 
 
 class KytoonSpec(BaseModel):

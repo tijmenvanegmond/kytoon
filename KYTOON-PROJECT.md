@@ -148,7 +148,7 @@ consciously replace them (and update this file + tests):
 
 ## 4. The test suite is a contract
 
-73 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
+76 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
 test_geometry, test_l1_body_aero, test_l1_trim — all passing at last
 compile. Categories:
 
@@ -166,10 +166,12 @@ compile. Categories:
 - **Trim/stability gates** (test_l1_trim.py): Mk V's 3-line rig must trim
   feasibly at cl_op, steer α from ≤1° to ≥12° at 6/12/20 m/s, hold a
   depower schedule 4→23 m/s under 75 % WLL with < 8 kN control tension
-  and < 6 m winchlet travel, and keep all fast eigenmodes damped; the
-  closed-form trim must agree with the elastic dynamics (residual accel
-  anchor); the single-confluence-instability and near-vertical-tow flags
-  must stay raised.
+  and < 1 m winchlet travel; with the 50 m pod the rig must be passively
+  stable (all modes damped, drift at most neutral) and a locked-winch
+  +50 % gust must keep ≥5° stall margin and return to trim; the ship-rig
+  regression (undamped drift without the pod) is also gated, as are the
+  closed-form-vs-dynamics anchor and the single-confluence-instability
+  and near-vertical-tow flags.
 - **L1 pipeline gates** (test_l1_aero.py): the parametric-V3-through-VSM
   polar stays inside its measured error bands (CL_max ±15% of tunnel,
   (L/D)max in [−25%, +10%]); Mk I reaches cl_op pre-stall on its *own*
@@ -310,6 +312,20 @@ legitimately lower per m² and not comparable to AWE traction figures.
   `bridle.chord_fraction` (0.35) and `bridle.control_mbl_kn`. Caveats:
   AeroBuildup Cm at t/c 0.28 (bounds, not certification), longitudinal
   plane only, tether drag/sag not coupled.
+- **Winchlet pod on the tether makes Mk V passively stable (2026-07-24)**:
+  moving the control winchlet from the ship to a pod riding the main line
+  50 m below the kite (spec: `bridle.pod_standoff_m: 50`) leaves the pitch
+  moment arm unchanged (that is attach geometry, 2.6 m) but multiplies the
+  control-path stiffness by L_tether/L_ctl ≈ 7.7× (55 vs 7 kN/m pair):
+  elastic pitch pinning goes from 1.3× to 10× the passive divergence.
+  Consequences, all gated: every eigenmode damped (the ship rig's +0.07/s
+  drift mode vanishes — winchlet becomes a trim actuator, not a
+  stabilizer); locked-winch +50 % gust at 12 m/s peaks at α ≈ 15° (8°
+  stall margin vs 0° for ship winches) and returns to trim unaided;
+  winchlet travel over the whole 4–23 m/s schedule drops 3.4 → 0.75 m at
+  ≤ 4.2 kN. Also deletes 2×350 m of control-line drag/weight (~28 kg)
+  for a pod of comparable mass hanging on the line. Open: pod swing mode
+  (modeled as riding the line rigidly), pod power/data.
 - **Mk V tow is nearly vertical (2026-07-24)**: the same trim map puts the
   line at 83–87° elevation across the envelope (buoyancy + high bound-L/D)
   — at 12 m/s, 24 kN line tension is only ~3–5 kN of *horizontal* pull.
@@ -373,14 +389,15 @@ legitimately lower per m² and not comparable to AWE traction figures.
    geometry, billow/twist once membrane results exist.
 7. **L2 (later)**: OpenFOAM ↔ CalculiX/FEniCSx via preCICE for gust and
    capture-state (arm-attached) load cases, final candidate only.
-8. ~~**Mk V trim & steerability**~~ — v1 DONE 2026-07-24:
-   `kytoon/solvers/l1_trim.py` (closed-form taut-taut trim map, eigen
-   stability, winchlet budget; findings in §6). Remaining for v2:
-   lateral/roll + yaw dynamics (steering, figure-eights kill the
-   near-vertical-tow problem?), couple l1_tether drag/sag into the trim
-   map, productize the time-domain gust sim (gust numbers in §6 came from
-   a throwaway probe; re-derive from `l1_trim._derivs` + RK4), Godot
-   replay of sim trajectories.
+8. ~~**Mk V trim & steerability**~~ — v1 DONE 2026-07-24, pod rig
+   2026-07-24: `kytoon/solvers/l1_trim.py` (closed-form taut-taut trim
+   map, eigen stability, winchlet budget, `bridle.pod_standoff_m`
+   support; findings in §6; locked-winch gust now gated in
+   test_l1_trim). Remaining for v2: pod swing-mode dynamics (pod as its
+   own node), lateral/roll + yaw (steering, figure-eights vs the
+   near-vertical-tow problem), couple l1_tether drag/sag into the trim
+   map, Godot replay of new trajectories (viewer exists:
+   `godot/mkv_replay.*`).
 
 ---
 
