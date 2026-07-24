@@ -32,6 +32,8 @@ const T_TEND := 3000.0             # N, ctl drum constant-tension when docked
 const THETA_HOLD_DEG := 10.0       # theta setpoint for pod autotrim
 const THETA_HOLD_GAIN := 0.08      # m of ctl-line per (deg-error * s), sign
                                    # mirrors recovery-test alpha-hold
+const START_LINE_M := 200.0        # interactive start length; l0m_full stays
+                                   # at the physical spool (tether_length)
 const MK_V_COLOR := Color("4a3aa7")
 
 var P: Dictionary                   # model parameters (JSON)
@@ -49,8 +51,8 @@ var docked := false
 # segmented main line (lumped-mass): sag, weight, drag, honest slack.
 # The selftest uses the straight-spring model for parity with l1_trim;
 # interactive and recovery use the segments.
-const SEG_TARGET_LEN := 35.0
-const SEG_MAX := 12
+const SEG_TARGET_LEN := 35.0 / 3.0
+const SEG_MAX := 36
 var seg_mode := true
 var nodes_p: Array[Vector2] = []    # [0]=fairlead ... [n_seg]=kite attach
 var nodes_v: Array[Vector2] = []
@@ -118,8 +120,15 @@ func _load_params() -> void:
 
 func _reset() -> void:
 	s.assign(P["init"]["state"])
-	l0m = P["init"]["l0_main"]
-	l0m_full = l0m
+	l0m_full = P["tether_length"]
+	l0m = clampf(START_LINE_M, 8.0, l0m_full)
+	# rescale kite position along the trim elevation so the line starts taut
+	var anchor := Vector2(P["fairlead"][0], P["fairlead"][1])
+	var r0 := Vector2(s[0], s[1]) - anchor
+	var r_scale: float = l0m / max(r0.length(), 1e-6)
+	var r_new := anchor + r0 * r_scale
+	s[0] = r_new.x
+	s[1] = r_new.y
 	l0c = P["init"]["l0_ctl"]
 	l0c_trim = l0c
 	wind_base = P["init"]["wind"]
