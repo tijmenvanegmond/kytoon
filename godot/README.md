@@ -1,6 +1,7 @@
-# godot/ — scene capture experiments
+# godot/ — scene capture + sim layer
 
-Godot 4.7 project for rendering the kytoon designs. Two scenes:
+Godot 4.7 project for rendering and now *simulating* the kytoon designs.
+Scenes:
 
 - `main.tscn` + `capture.gd` — the original claude.ai-sandbox experiment:
   procedural primitives, orbiting camera, PNG-per-frame capture. Proved the
@@ -11,6 +12,20 @@ Godot 4.7 project for rendering the kytoon designs. Two scenes:
   `../models/*.glb` (from `python -m kytoon.geometry specs/ -o models`),
   rigs all five Mks over the sea with ship + tether, orbits the camera,
   saves a PNG per frame. Outputs in `renders/`.
+- `mkv_replay.tscn` + `mkv_replay.gd` — replays a Mk V trajectory CSV
+  computed by the Python solver (`export_mkv_replay.py`, pod-rig
+  locked-winch gust case). Pure viewer, no physics in Godot.
+- `mkv_sim.tscn` + `mkv_sim.gd` — **the sim layer**: a GDScript port of
+  `kytoon.solvers.l1_trim._derivs` (6-state longitudinal model, RK4 at
+  240 Hz) running live. Parameters come from `mkv_sim_params.json`
+  (regenerate with `export_sim_params.py` after any spec/solver change).
+  Interactive keys: Up/Down wind, W/S winchlet, G gust, R reset, Space
+  pause. Also `-- --demo-out=DIR` (scripted capture) and
+  `-- --selftest=out.csv` (headless; must match the Python trajectory —
+  verified 2026-07-24 to 0.012° in α / 0.12 % in tension vs
+  `renders/mkv_replay.csv`). The Python solver stays the reference:
+  this file is a port, not a fork — do not add physics here that
+  l1_trim doesn't have.
 
 ## Run (Windows, GPU, window flashes briefly)
 
