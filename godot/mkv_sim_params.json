@@ -183,6 +183,8 @@
   5.0
  ],
  "tether_length": 400.0,
+ "tether_diameter_m": 0.016,
+ "tether_linear_density": 0.14,
  "wll_n": 66666.66666666667,
  "ctl_cap_n": 33333.333333333336,
  "init": {

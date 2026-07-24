@@ -408,7 +408,9 @@ legitimately lower per m² and not comparable to AWE traction figures.
    test_l1_trim). Remaining for v2: pod swing-mode dynamics (pod as its
    own node), lateral/roll + yaw (steering, figure-eights vs the
    near-vertical-tow problem), couple l1_tether drag/sag into the trim
-   map, Godot replay of new trajectories (viewer exists:
+   map, cross-check the Godot sim's lumped-mass segmented tether
+   (godot/mkv_sim.gd: sag/weight/drag/honest slack) against l1_tether's
+   MoorPy statics, Godot replay of new trajectories (viewer exists:
    `godot/mkv_replay.*`).
 
 ---

@@ -21,15 +21,22 @@ Scenes:
   (regenerate with `export_sim_params.py` after any spec/solver change).
   Interactive keys: Up/Down wind, W/S winchlet trim, **I/O main winch**
   (2 m/s, Shift ×5 — full recovery to deck), G gust, R reset, Space
-  pause. Extra physics beyond l1_trim, same laws: line stiffness follows
-  k = EA/L as the main line reels; the pod docks near the fairlead when
-  the line gets shorter than its standoff (ctl drum auto-tends ~3 kN —
-  pitch pinning goes soft, an honest consequence). Headless modes:
-  `-- --selftest=out.csv` (locked-winch gust; verified 2026-07-24 to
-  0.02° in α / 0.2 % in tension vs `renders/mkv_replay.csv`) and
-  `-- --recovery-test=out.csv` (full 400→20 m winch-in). The Python
-  solver stays the reference for the flight model — do not add aero or
-  buoyancy physics here that l1_trim doesn't have.
+  pause. Extra physics beyond l1_trim, same laws: the main line is a
+  **lumped-mass segmented tether** (≈35 m segments, 2–12 adapting to
+  deployed length, EA/L springs, line weight, cylinder drag — so it
+  sags, goes honestly slack, and the pod rides the actual line shape
+  with its control reaction applied to the line nodes); the pod docks
+  near the fairlead when the line gets shorter than its standoff (ctl
+  drum auto-tends ~3 kN — pitch pinning goes soft, an honest
+  consequence). Headless modes: `-- --selftest=out.csv` (locked-winch
+  gust, run on the STRAIGHT-line model — the parity gate vs l1_trim;
+  verified 2026-07-24 to 0.02° in α / 0.2 % in tension vs
+  `renders/mkv_replay.csv`) and `-- --recovery-test=out.csv` (full
+  400→20 m winch-in on the segmented line). The Python solver stays the
+  reference for the flight model — do not add aero or buoyancy physics
+  here that l1_trim doesn't have; the segmented tether is l1_tether's
+  territory and should eventually be cross-checked against its MoorPy
+  sag/tension numbers.
 
 ## Recovery procedure (what the sim taught us, 2026-07-24)
 

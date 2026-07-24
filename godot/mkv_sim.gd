@@ -41,6 +41,16 @@ var ea_ctl: float
 var l_ctl0: float                   # nominal ctl 3D length at full standoff
 var ctl_rest2: float                # l_ctl0^2 - standoff^2 (span+chord part)
 var docked := false
+
+# segmented main line (lumped-mass): sag, weight, drag, honest slack.
+# The selftest uses the straight-spring model for parity with l1_trim;
+# interactive and recovery use the segments.
+const SEG_TARGET_LEN := 35.0
+const SEG_MAX := 12
+var seg_mode := true
+var nodes_p: Array[Vector2] = []    # [0]=fairlead ... [n_seg]=kite attach
+var nodes_v: Array[Vector2] = []
+var n_seg := 0
 var wind_base := 12.0
 var sim_t := 0.0
 var gust_t0 := -1e9
@@ -54,6 +64,7 @@ var pod: MeshInstance3D
 var cam: Camera3D
 var hud: Label
 var line_main: MeshInstance3D
+var seg_lines: Array[MeshInstance3D] = []
 var line_ctl_l: MeshInstance3D
 var line_ctl_r: MeshInstance3D
 var mat_main: StandardMaterial3D
@@ -77,6 +88,7 @@ func _ready() -> void:
 	_load_params()
 	_reset()
 	if mode == "selftest":
+		seg_mode = false     # parity mode: straight line, matches l1_trim
 		_run_selftest()
 		return
 	if mode == "recovery":
@@ -109,6 +121,48 @@ func _reset() -> void:
 	sim_t = 0.0
 	gust_t0 = -1e9
 	docked = false
+	_init_line()
+
+
+func _kite_attach() -> Vector2:
+	return Vector2(s[0], s[1]) + _rot(P["p_main"], s[2])
+
+
+func _init_line() -> void:
+	n_seg = clampi(int(ceil(l0m / SEG_TARGET_LEN)), 2, SEG_MAX)
+	var a := Vector2(P["fairlead"][0], P["fairlead"][1])
+	var b := _kite_attach()
+	nodes_p.clear()
+	nodes_v.clear()
+	for i in n_seg + 1:
+		nodes_p.append(a.lerp(b, float(i) / n_seg))
+		nodes_v.append(Vector2.ZERO)
+
+
+func _remesh_line() -> void:
+	var n_new: int = clampi(int(ceil(l0m / SEG_TARGET_LEN)), 2, SEG_MAX)
+	if n_new == n_seg:
+		return
+	# resample the old polyline by arc length
+	var lens: Array[float] = [0.0]
+	for i in n_seg:
+		lens.append(lens[i] + (nodes_p[i + 1] - nodes_p[i]).length())
+	var total: float = lens[n_seg]
+	var new_p: Array[Vector2] = []
+	var new_v: Array[Vector2] = []
+	for j in n_new + 1:
+		var target := total * float(j) / n_new
+		var i := 0
+		while i < n_seg - 1 and lens[i + 1] < target:
+			i += 1
+		var f := 0.0
+		if lens[i + 1] > lens[i]:
+			f = (target - lens[i]) / (lens[i + 1] - lens[i])
+		new_p.append(nodes_p[i].lerp(nodes_p[i + 1], f))
+		new_v.append(nodes_v[i].lerp(nodes_v[i + 1], f))
+	nodes_p = new_p
+	nodes_v = new_v
+	n_seg = n_new
 
 
 func wind_now() -> float:
@@ -220,6 +274,8 @@ func _derivs(st: Array[float], U: float) -> Dictionary:
 
 
 func _step(dt: float) -> Dictionary:
+	if seg_mode:
+		return _step_segmented(dt)
 	var U := wind_now()
 	var out := _derivs(s, U)
 	var k1: Array = out["d"]
@@ -230,6 +286,166 @@ func _step(dt: float) -> Dictionary:
 		s[i] += dt / 6.0 * (k1[i] + 2.0 * k2[i] + 2.0 * k3[i] + k4[i])
 	sim_t += dt
 	return out
+
+
+# Segmented-line step: kite (same aero/buoyancy laws as _derivs — keep in
+# sync) + lumped-mass line nodes, semi-implicit Euler on two substeps.
+# The line has weight, drag, and honest slack; the pod rides the actual
+# line shape and its control reaction pushes back on the line nodes.
+func _step_segmented(dt: float) -> Dictionary:
+	var out: Dictionary
+	var seg_rest: float = l0m / maxi(n_seg, 2)
+	var n_sub := 2                       # short segments = stiff springs
+	if seg_rest < 22.0:
+		n_sub = 4
+	if seg_rest < 12.0:
+		n_sub = 6
+	for sub in n_sub:
+		out = _substep_segmented(dt / n_sub)
+	sim_t += dt
+	return out
+
+
+func _substep_segmented(dt: float) -> Dictionary:
+	var U := wind_now()
+	_remesh_line()
+	var anchor := Vector2(P["fairlead"][0], P["fairlead"][1])
+	nodes_p[0] = anchor
+	nodes_v[0] = Vector2.ZERO
+	var attach := _kite_attach()
+	var rw_m := _rot(P["p_main"], s[2])
+	var v_attach := Vector2(s[3], s[4]) + s[5] * Vector2(rw_m.y, -rw_m.x)
+	nodes_p[n_seg] = attach
+	nodes_v[n_seg] = v_attach
+
+	var seg_rest: float = l0m / n_seg
+	var k_seg: float = ea_main / seg_rest
+	var m_node: float = P["tether_linear_density"] * seg_rest
+	var c_seg: float = 2.0 * 0.05 * sqrt(k_seg * m_node)   # 5% structural
+
+	# segment tensions (no compression)
+	var seg_T: Array[float] = []
+	var seg_dir: Array[Vector2] = []
+	for i in n_seg:
+		var d := nodes_p[i + 1] - nodes_p[i]
+		var L := d.length()
+		var u := d / maxf(L, 1e-9)
+		var vrel := (nodes_v[i + 1] - nodes_v[i]).dot(u)
+		var T := 0.0
+		if L > seg_rest:
+			T = maxf(k_seg * (L - seg_rest) + c_seg * vrel, 0.0)
+		seg_T.append(T)
+		seg_dir.append(u)
+
+	# node forces: segment pull + weight + cylinder drag
+	var node_F: Array[Vector2] = []
+	node_F.resize(n_seg + 1)
+	for i in n_seg + 1:
+		node_F[i] = Vector2.ZERO
+	for i in n_seg:
+		node_F[i] += seg_T[i] * seg_dir[i]
+		node_F[i + 1] -= seg_T[i] * seg_dir[i]
+	var cd_cyl: float = 0.5 * P["rho"] * 1.1 * P["tether_diameter_m"] \
+		* seg_rest
+	for i in range(1, n_seg):
+		node_F[i] += Vector2(0, -m_node * P["g"])
+		var vr := Vector2(U, 0) - nodes_v[i]
+		node_F[i] += cd_cyl * vr.length() * vr
+
+	# pod rides the line: walk arc length back from the kite end
+	var arc_total := 0.0
+	for i in n_seg:
+		arc_total += (nodes_p[i + 1] - nodes_p[i]).length()
+	var standoff: float = clampf(arc_total - 3.0, 0.5,
+		float(P["pod_standoff"]))
+	var is_docked := standoff < float(P["pod_standoff"]) - 0.01
+	var remaining := standoff
+	var pod_p := nodes_p[0]
+	var pod_v := Vector2.ZERO
+	var pod_i := 0
+	var pod_w := 0.0
+	for j in range(n_seg, 0, -1):
+		var seg_len := (nodes_p[j] - nodes_p[j - 1]).length()
+		if remaining <= seg_len or j == 1:
+			var f: float = clampf(remaining / max(seg_len, 1e-9), 0.0, 1.0)
+			pod_p = nodes_p[j].lerp(nodes_p[j - 1], f)
+			pod_v = nodes_v[j].lerp(nodes_v[j - 1], f)
+			pod_i = j
+			pod_w = f
+			break
+		remaining -= seg_len
+
+	# ---- kite forces (mirror of _derivs, main spring replaced) ----------
+	var th := s[2]
+	var wa := Vector2(U - s[3], -s[4])
+	var va: float = max(wa.length(), 1e-6)
+	var alpha := rad_to_deg(th + atan2(wa.y, wa.x))
+	var cl := _interp(P["alphas"], P["cl"], alpha)
+	var cd := _interp(P["alphas"], P["cd"], alpha)
+	var cm := _interp(P["alphas"], P["cm"], alpha)
+	var S: float = P["S"]
+	var c_ref: float = P["c_ref"]
+	var q: float = 0.5 * P["rho"] * va * va
+	var dhat := wa / va
+	var lhat := Vector2(-dhat.y, dhat.x)
+	var F := q * S * (cd * dhat + cl * lhat)
+	var M: float = q * S * c_ref \
+		* (cm + P["cm_q"] * s[5] * c_ref / (2.0 * va))
+	for pair in [[P["r_skin"], -P["m_skin"] * float(P["g"])],
+				 [P["p_main"], -P["m_pod"] * float(P["g"])],
+				 [P["r_cb"], float(P["buoyancy_n"])]]:
+		var rw := _rot(pair[0], th)
+		F.y += pair[1]
+		M += -rw.x * pair[1]
+	# main line force on the kite = last segment
+	var t_main: float = seg_T[n_seg - 1]
+	var f_line := -seg_T[n_seg - 1] * seg_dir[n_seg - 1]
+	F += f_line
+	M += rw_m.y * f_line.x - rw_m.x * f_line.y
+	# control pair to the pod
+	var k_ctl: float = ea_ctl / sqrt(standoff * standoff + ctl_rest2)
+	var rw_c := _rot(P["p_ctl"], th)
+	var r_c := Vector2(s[0], s[1]) + rw_c
+	var v_c := Vector2(s[3], s[4]) + s[5] * Vector2(rw_c.y, -rw_c.x)
+	var v := pod_p - r_c
+	var v_len := v.length()
+	var dist3: float = sqrt(v_len * v_len + P["y_ctl"] * P["y_ctl"])
+	var l0c_eff := l0c
+	if is_docked:
+		l0c_eff = max(l0c, dist3 - T_TEND / k_ctl)
+	var t_ctl := 0.0
+	if dist3 > l0c_eff:
+		var uvc := v / maxf(v_len, 1e-9)
+		t_ctl = maxf(k_ctl * (dist3 - l0c_eff)
+			- P["c_line"] * (v_c - pod_v).dot(uvc), 0.0)
+		var fc := t_ctl * (v_len / dist3) * uvc
+		F += fc
+		M += rw_c.y * fc.x - rw_c.x * fc.y
+		# reaction on the line nodes the pod sits between
+		node_F[pod_i] -= fc * (1.0 - pod_w)
+		node_F[pod_i - 1] -= fc * pod_w
+	var rcg := _rot(P["r_cg"], th)
+	var m_cg: float = M - (rcg.y * F.x - rcg.x * F.y)
+
+	# ---- integrate (semi-implicit Euler) --------------------------------
+	for i in range(1, n_seg):
+		nodes_v[i] += node_F[i] / m_node * dt
+		nodes_p[i] += nodes_v[i] * dt
+	var acc := [F.x / (P["m_total"] + P["m_added_x"]),
+				F.y / (P["m_total"] + P["m_added_z"]),
+				m_cg / (P["i_yy"] + P["i_added"])]
+	s[3] += acc[0] * dt
+	s[4] += acc[1] * dt
+	s[5] += acc[2] * dt
+	s[0] += s[3] * dt
+	s[1] += s[4] * dt
+	s[2] += s[5] * dt
+
+	return {
+		"alpha": alpha, "t_main": t_main, "t_ctl": t_ctl,
+		"r_m": attach, "r_c": r_c, "pod": pod_p,
+		"docked": is_docked, "dist": arc_total,
+	}
 
 
 func _madd(a: Array[float], b: Array, f: float) -> Array[float]:
@@ -551,8 +767,19 @@ func _update_visuals(out: Dictionary) -> void:
 	pod.position = pod_pos
 	var rm: Vector2 = out["r_m"]
 	var rc: Vector2 = out["r_c"]
-	_stretch(line_main, Vector3(P["fairlead"][0], P["fairlead"][1], 0),
-		Vector3(rm.x, rm.y, 0))
+	if seg_mode:
+		line_main.visible = false
+		while seg_lines.size() < n_seg:
+			seg_lines.append(_make_line(0.20, mat_main))
+		while seg_lines.size() > n_seg:
+			seg_lines.pop_back().queue_free()
+		for i in n_seg:
+			_stretch(seg_lines[i],
+				Vector3(nodes_p[i].x, nodes_p[i].y, 0),
+				Vector3(nodes_p[i + 1].x, nodes_p[i + 1].y, 0))
+	else:
+		_stretch(line_main, Vector3(P["fairlead"][0], P["fairlead"][1], 0),
+			Vector3(rm.x, rm.y, 0))
 	_stretch(line_ctl_l, pod_pos, Vector3(rc.x, rc.y, -P["y_ctl"]))
 	_stretch(line_ctl_r, pod_pos, Vector3(rc.x, rc.y, P["y_ctl"]))
 	_tension_color(mat_main, last_tm, P["wll_n"])

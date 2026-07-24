@@ -62,6 +62,8 @@ params = {
     "pod_standoff": spec.bridle.pod_standoff_m,
     "fairlead": [0.0, FAIRLEAD_HEIGHT],
     "tether_length": spec.tether.length,
+    "tether_diameter_m": spec.tether.diameter_mm / 1000.0,
+    "tether_linear_density": spec.tether.linear_density,
     "wll_n": spec.tether.wll_n,
     "ctl_cap_n": 2 * spec.bridle.control_mbl_kn * 1e3
         / spec.tether.safety_factor,
