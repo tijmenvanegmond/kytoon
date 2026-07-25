@@ -1,98 +1,174 @@
-# godot/ — scene capture + sim layer
+# Manta — the Godot layer
 
-Godot 4.7 project for rendering and now *simulating* the kytoon designs.
-Scenes:
+Godot 4.7 project for the kytoon work. The **Mk V live sim is the main
+scene**: open the project and press F5.
 
-- `main.tscn` + `capture.gd` — the original claude.ai-sandbox experiment:
-  procedural primitives, orbiting camera, PNG-per-frame capture. Proved the
-  pipeline works with no GPU/display (`render.sh` runs it under Xvfb +
-  Mesa llvmpipe on Linux). `orbit.gif` / `orbit.mp4` / `frame_000.png` are
-  its outputs.
-- `fleet.tscn` + `fleet_capture.gd` — the kytoon fleet turntable: loads
-  `../models/*.glb` (from `python -m kytoon.geometry specs/ -o models`),
-  rigs all five Mks over the sea with ship + tether, orbits the camera,
-  saves a PNG per frame. Outputs in `renders/`.
-- `mkv_replay.tscn` + `mkv_replay.gd` — replays a Mk V trajectory CSV
-  computed by the Python solver (`export_mkv_replay.py`, pod-rig
-  locked-winch gust case). Pure viewer, no physics in Godot.
-- `mkv_sim.tscn` + `mkv_sim.gd` — **the sim layer**: a GDScript port of
-  `kytoon.solvers.l1_trim._derivs` (6-state longitudinal model, RK4 at
-  240 Hz) running live. Parameters come from `mkv_sim_params.json`
-  (regenerate with `export_sim_params.py` after any spec/solver change).
-  Interactive keys: Up/Down wind, W/S winchlet trim, **I/O main winch**
-  (2 m/s, Shift ×5 — full recovery to deck), G gust, R reset, Space
-  pause. Extra physics beyond l1_trim, same laws: the main line is a
-  **lumped-mass segmented tether** (≈35 m segments, 2–12 adapting to
-  deployed length, EA/L springs, line weight, cylinder drag — so it
-  sags, goes honestly slack, and the pod rides the actual line shape
-  with its control reaction applied to the line nodes); the pod docks
-  near the fairlead when the line gets shorter than its standoff (ctl
-  drum auto-tends ~3 kN — pitch pinning goes soft, an honest
-  consequence). Headless modes: `-- --selftest=out.csv` (locked-winch
-  gust, run on the STRAIGHT-line model — the parity gate vs l1_trim;
-  verified 2026-07-24 to 0.02° in α / 0.2 % in tension vs
-  `renders/mkv_replay.csv`) and `-- --recovery-test=out.csv` (full
-  400→20 m winch-in on the segmented line). The Python solver stays the
-  reference for the flight model — do not add aero or buoyancy physics
-  here that l1_trim doesn't have; the segmented tether is l1_tether's
-  territory and should eventually be cross-checked against its MoorPy
-  sag/tension numbers.
+```
+project.godot        name "Manta", main scene = sim/mkv_sim.tscn, input map
+data/                mkv_sim_params.json — flight model, generated, do not edit
+sim/                 the sim: mkv_sim.gd (+ .tscn), sim_hud, sim_camera, trace_plot
+common/              kytoon_world.gd — shared sky/sea/ship/kite/line helpers
+viz/                 capture scenes: fleet.tscn (turntable), mkv_replay.tscn
+tools/               export_sim_params.py, export_mkv_replay.py (run from repo root)
+sandbox/             the original claude.ai experiment that started this branch
+renders/, frames/    capture output (gitignored, carry a .gdignore)
+```
+
+## The sim
+
+`sim/mkv_sim.gd` is a **port of `kytoon.solvers.l1_trim`** — the same
+6-state longitudinal model (x, z, θ, u, w, ω), RK4 at 240 Hz — plus a
+lumped-mass segmented tether. The Python solver is the reference. Do not
+add aero or buoyancy physics here that `l1_trim` doesn't have; change the
+solver first, re-export, re-run the parity gate.
+
+Beyond `l1_trim`, using the same laws:
+
+- **Segmented main line** (~12 m segments, 2–36 by deployed length):
+  EA/L springs, line weight, cylinder drag — it sags, goes honestly
+  slack, and the pod rides the real line shape with its control reaction
+  applied to the line nodes.
+- **Variable line length**: stiffness follows k = EA/L as the winch reels.
+- **Pod docking**: when the line gets shorter than the pod standoff the
+  pod pins near the fairlead and its drum auto-tends (~3 kN). Pitch
+  pinning goes soft — an honest consequence, not a bug.
+- **Payload as an option** (see below).
+
+### Controls
+
+| key | |
+|---|---|
+| ↑ / ↓ | wind, 2–26 m/s |
+| `-` / `=` | payload (see below) |
+| W / S | winchlet trim (control-line length) |
+| T | trim autohold (θ → 10°) |
+| I / O | main winch in/out, 2 m/s — hold Shift for ×5 |
+| G | +6 m/s 1-cos gust, 6 s |
+| `[` / `]` | time rate, 0.25× … 8× (recovery takes 190 s at 1×) |
+| 1 / 2 / 3 | scenario: cruise 12 m/s @200 m · loiter 8 @400 · capture hover 5 @25 |
+| C | camera: rig / kite / ship / wide |
+| drag, wheel | orbit, zoom |
+| Space, R, H, Esc | pause, reset, help, quit |
+
+### Payload is a sim option, not a spec edit
+
+`specs/mk5_manta.yaml` stays at its 60 kg EO/IR payload. The sim can fly
+other masses (`-` / `=`, 0–1500 kg) and recomputes CG, pitch inertia and
+added inertia exactly the way `l1_trim.mass_props` does — the exporter
+ships the payload-independent terms (`i_skin_own`, `ia_a/b/d`) and
+asserts the rearrangement against the solver.
+
+Buoyancy is fixed at **551 kg** of net He lift, so payload trades
+directly against calm-air capability (solver numbers):
+
+| payload | flying mass | net static | min wind to fly |
+|--------:|------------:|-----------:|----------------:|
+| 60 kg | 266 kg | +285 kg | 1.0 m/s |
+| 300 kg | 506 kg | +45 kg | 4.5 m/s |
+| 500 kg | 706 kg | −155 kg | 5.5 m/s |
+| 700 kg | 906 kg | −355 kg | 6.5 m/s |
+
+Past ~490 kg the airframe stops floating: it becomes a kite that must be
+flown and comes down when the wind drops. The HUD's *net lift* row turns
+red there. Carrying 500 kg buoyantly would need roughly +470 m³ of helium
+(~1000 m³ vs today's 530) — a spec conversation, not a sim setting.
+
+## Headless modes
+
+```
+godot --path godot sim/mkv_sim.tscn --headless -- --selftest=out.csv
+godot --path godot sim/mkv_sim.tscn --headless -- --recovery-test=out.csv
+godot --path godot sim/mkv_sim.tscn -- --demo-out=DIR        # needs a GPU
+```
+
+**`--selftest` is the parity gate.** It runs the locked-winch gust on the
+straight-line model from the exact `l1_trim` reconstruction (never a
+scenario preset, never a non-spec payload — those leak in and the gate
+silently stops testing what it claims; that regression happened once
+already) and must match `renders/mkv_replay.csv`:
+
+```
+python godot/tools/export_mkv_replay.py     # Python reference trajectory
+# then diff the two CSVs — last verified 2026-07-25:
+#   alpha 0.020 deg, theta 0.007 deg, T_main 72 N, T_ctl 20 N
+```
+
+Regenerate the flight model after any spec or solver change:
+
+```
+python godot/tools/export_sim_params.py
+```
+
+## Capture scenes
+
+```
+godot --path godot viz/fleet.tscn --audio-driver Dummy -- --frames=180 --out=DIR
+godot --path godot viz/mkv_replay.tscn --audio-driver Dummy -- --csv=FILE --out=DIR
+godot --path godot sandbox/main.tscn --audio-driver Dummy -- --frames=90 --out=DIR
+```
+
+`viz/mkv_replay.tscn` is a pure viewer for a Python-computed trajectory —
+no physics in Godot, so the picture cannot flatter the model. Assemble
+frames with the venv's imageio (bundled ffmpeg):
+
+```python
+import glob, imageio.v2 as iio
+imgs = [iio.imread(f) for f in sorted(glob.glob('DIR/frame_*.png'))]
+w = iio.get_writer('out.mp4', fps=30, codec='libx264', quality=8, pixelformat='yuv420p')
+for im in imgs: w.append_data(im)
+w.close()
+```
 
 ## Recovery procedure (what the sim taught us, 2026-07-24)
 
 Winching Mk V from 400 m to the 20 m capture hover at 5 m/s wind fails
-three naive ways before it works; the working procedure is:
+three naive ways before it works:
 
 1. **Tension-governed reel**, not constant speed — a 2 m/s speed step on
    400 m of elastic line pogo-bounces the 3-t effective mass (ζ ≈ 0.16)
    into slack/snap cycles (observed 63–150 kN spikes, tumbling).
 2. **α-hold on the winchlet, not θ-hold** — descending at 2 m/s in 5 m/s
    wind adds ~22° of inflow; holding attitude runs the wing past stall.
-   The winchlet must trim nose-down on the way down (α ≈ 6°) and re-trim
-   for the hover.
+   Trim nose-down on the way down (α ≈ 6°), re-trim for the hover.
 3. **Stay powered** — a buoyant kite needs no depower to descend (the
    winch trivially beats +2.8 kN net buoyancy) and slack control lines
    mean no attitude authority at all.
 
-Result: 190 s descent, tension never above ~10 kN, ending in a buoyant
-hover at ~23 m. The hover attitude itself is NOT a sim problem — it is
-closed-form statics (`l1_trim.hang_trim`): the current rig hangs −41°
-nose-down at zero q (−54° with the 5 m/s residual, matching this sim's
-endgame within 4°). Level-hover options are solved and gated in
-test_l1_trim (aft pendant ≈ 0.8 kN, or lock the ctl drum through
-docking instead of the tension-tend implemented here). What the sim
-still owes once the rigging is chosen: the winner's transient into the
-hover and the pendulum excursion envelope in ship frame — the capture
-arm's actual chase spec.
-
-## Run (Windows, GPU, window flashes briefly)
-
-```
-godot --path godot fleet.tscn --audio-driver Dummy -- --frames=180 --out=C:/some/dir/frames
-```
-
-Assemble frames (venv has imageio + bundled ffmpeg):
-
-```python
-import glob, imageio.v2 as iio
-imgs = [iio.imread(f) for f in sorted(glob.glob(r'frames/frame_*.png'))]
-w = iio.get_writer('fleet_orbit.mp4', fps=30, codec='libx264', quality=8, pixelformat='yuv420p')
-for im in imgs: w.append_data(im)
-w.close()
-```
+Result: 190 s descent, tension never above ~10 kN, buoyant hover at ~20 m.
+The hover *attitude* is not a sim problem — it is closed-form statics
+(`l1_trim.hang_trim`): the rig hangs −41° nose-down at zero q (−57° with
+5 m/s residual, matching this sim's endgame). Level-hover options are
+solved and gated in `test_l1_trim`. What the sim still owes once the
+rigging is chosen: the transient into the hover and the pendulum
+excursion envelope in ship frame — the capture arm's chase spec.
 
 ## Conventions / gotchas
 
 - The glb exporter authors x-downstream / y-spanwise / **z-up**; glTF is
-  Y-up. Every loaded model therefore gets `rotation_degrees = (-90, 90, 0)`:
-  up → +Y, span along X, nose pointing −Z (wind from +Z). A model that looks
-  rolled over means this rotation is missing.
+  Y-up. `KytoonWorld.kite()` applies −90° X plus a yaw: 0 for the
+  longitudinal scenes, 90 for the fleet lineup. A model that looks rolled
+  over is missing this.
 - Model origins sit at the bridle confluence — attach tethers to the node
   origin (small per-Mk keel offsets in `FLEET`).
-- Kytoon colors come from `kytoon/viz.py` `MK_COLOR` — fixed per Mk, don't
-  re-derive.
+- Kytoon colors come from `kytoon/viz.py` `MK_COLOR` (mirrored in
+  `KytoonWorld.MK_COLOR`) — fixed per Mk, never re-derived from order.
 - Canopies are open surfaces: materials need `cull_mode = CULL_DISABLED`
   or they vanish from one side.
-- `--headless` disables rendering entirely in Godot 4 — viewport capture
-  needs a real driver (GPU here, or the Xvfb/llvmpipe trick from
-  `render.sh` on a display-less Linux box).
+- `--headless` disables rendering entirely in Godot 4, so it cannot
+  capture frames — that needs a real driver (a GPU here, or the
+  Xvfb + Mesa llvmpipe trick in `sandbox/render.sh` on a display-less
+  Linux box). Headless is still right for `--selftest`/`--recovery-test`.
+- Keep `.gdignore` in `renders/` and `frames/`: without it Godot imports
+  every capture PNG as a texture and parses stray CSVs as *translation
+  files*. The exporters write it; don't delete it.
+- GDScript gotchas hit while building this: no `%g` in format strings,
+  `_set` collides with `Object._set`, and `max()`/`min()` return Variant
+  so `var x := max(a, b)` fails to infer — use `maxf`/`maxi`.
+
+## Follow-ups
+
+- `viz/mkv_replay.gd` and `viz/fleet_capture.gd` still build their own
+  sky/sea/ship/lines; they predate `common/kytoon_world.gd` and should be
+  moved onto it (the sim already is). Verify by re-rendering a frame.
+- Cross-check the segmented tether's sag/tension against `l1_tether`'s
+  MoorPy statics — same physics, two independent implementations.

@@ -12,6 +12,7 @@ attach, xp/zp pod — the replay never re-derives geometry).
 """
 import math
 import sys
+from pathlib import Path
 
 import numpy as np
 
@@ -25,6 +26,12 @@ from kytoon.solvers.l1_trim import (
 from kytoon.spec import load_spec
 
 OUT = "godot/renders/mkv_replay.csv"     # run from the repo root
+
+# renders/ sits inside the Godot project: without .gdignore the editor
+# imports every PNG as a texture and parses stray CSVs as translations.
+_out_dir = Path(OUT).parent
+_out_dir.mkdir(parents=True, exist_ok=True)
+(_out_dir / ".gdignore").touch()
 
 spec = load_spec("specs/mk5_manta.yaml")
 assert spec.bridle.pod_standoff_m, "demo expects the pod rig"
