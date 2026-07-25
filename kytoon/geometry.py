@@ -163,17 +163,36 @@ def _airfoil_section(chord: float, thickness: float,
     return np.vstack([upper, lower[1:-1]])    # closed ring, no dup endpoints
 
 
-def _lofted_fatwing(fw, sweep_deg: float = 15.0, n_span: int = 33):
+def _lofted_fatwing(fw, sweep_deg: float = 15.0, n_span: int = 33,
+                    dihedral_deg: float = 0.0, fold_eta: float = 0.0):
     """Watertight manta body: airfoil sections lofted along the tapering
-    span, quarter-chord line swept aft. Fat center, thin tips."""
+    span, quarter-chord line swept aft. Fat center, thin tips.
+
+    `dihedral_deg` folds the panels outboard of `fold_eta` (fraction of
+    semi-span; 0 = dihedral straight from the root) by rotating them about
+    the fold line — a rigid rotation, so the volume is preserved but the
+    volume *centroid* moves. That last part matters beyond aero: the CB
+    sitting aft of the pull point is what makes the single-confluence rig
+    unstable, so Γ moves the term that finding rests on. Default 0.0
+    reproduces the flat loft exactly.
+    """
+    gamma = math.radians(dihedral_deg)
+    y_break = fold_eta * fw.span / 2
     ys = np.linspace(-fw.span / 2, fw.span / 2, n_span)
     rings = []
     for y in ys:
         c = fw.chord_at(abs(2 * y / fw.span))
         sec = _airfoil_section(c, fw.thickness_ratio * c)
         x_off = math.tan(math.radians(sweep_deg)) * abs(y) - 0.25 * c
-        rings.append(np.column_stack([
-            sec[:, 0] + x_off, np.full(len(sec), y), sec[:, 1]]))
+        yy = np.full(len(sec), y)
+        zz = sec[:, 1].copy()
+        if gamma != 0.0 and abs(y) > y_break:
+            # rigid rotation of the panel about the fold line at ±y_break
+            dy = abs(y) - y_break
+            sgn = math.copysign(1.0, y)
+            yy = sgn * (y_break + dy * math.cos(gamma) - zz * math.sin(gamma))
+            zz = dy * math.sin(gamma) + zz * math.cos(gamma)
+        rings.append(np.column_stack([sec[:, 0] + x_off, yy, zz]))
     rings = np.asarray(rings)                 # (n_span, n_ring, 3)
     n_ring = rings.shape[1]
     verts = rings.reshape(-1, 3)
