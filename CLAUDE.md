@@ -103,6 +103,18 @@ Three-stage pipeline, one file per stage:
   tensions, flags); `v_max_tether()` bisects the drag-corrected WLL ceiling.
   Same guarded-import rule as l1_aero.
   CLI: `python -m kytoon.solvers.l1_tether specs/mk1_sled.yaml -v 12 --vmax`.
+- `kytoon/solvers/l1_mass3d.py`, `l1_lat_aero.py`, `l1_rig3d.py` — L1 tier
+  (optional): the **lateral** stack, built to answer whether a winchlet can
+  steer Mk V (a roll question the longitudinal model structurally cannot
+  represent). Stage 1 mass tensor + 6×6 added mass, dihedral-parameterised;
+  Stage 2 sideslip derivatives from an AeroBuildup β sweep plus strip-theory
+  rate derivatives; Stage 3 3D force closure with the two control lines
+  separated. Each reduces exactly to the planar model at Γ = 0 and β = 0 —
+  that reduction is the main guard on the whole stack, so keep it gated.
+  Beware the axis conventions: AeroBuildup reports moments in
+  flight-dynamics body axes (x fwd, z down) while the loft is geometry axes
+  (x aft, z up), and its β is negated relative to `l1_rig3d.wind_angles`.
+  CLI: `python -m kytoon.solvers.l1_rig3d specs/mk5_manta.yaml`.
 - `kytoon/report.py` — turns a list of `L0Report` into the comparison table +
   per-member structure margins + flags seen in `reports/l0.md`.
 - `kytoon/geometry.py` — 3D kernel: realizes each spec as a trimesh scene

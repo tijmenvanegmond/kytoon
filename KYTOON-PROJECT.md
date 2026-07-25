@@ -75,6 +75,15 @@ kytoon/solvers/l1_body_aero.py  L1 hybrid aero: wing+body hybrids (Mk II;
 kytoon/solvers/l1_trim.py  L1 trim/stability: Mk V 3-line rig — closed-form
                         taut-taut trim map, steering envelope, winchlet
                         budget, eigen stability. Also `l1` extra.
+kytoon/solvers/l1_mass3d.py   L1 lateral Stage 1: inertia tensor + 6×6
+                        added-mass matrix, dihedral-parameterised.
+                        Reduces exactly to l1_trim's planar terms.
+kytoon/solvers/l1_lat_aero.py L1 lateral Stage 2: CY/Cl/Cn_β from an
+                        AeroBuildup β sweep, rate derivatives by strip
+                        theory, and the winchlet steer response.
+kytoon/solvers/l1_rig3d.py    L1 lateral Stage 3: 3D force closure with
+                        the two control lines separated — yaw stiffness
+                        of the bridle, differential-trim steering.
 kytoon/aero.py          TU Delft V3 benchmark loader + system-polar model.
 kytoon/report.py        CLI: python -m kytoon.report specs/ -o reports/l0.md
 kytoon/viz.py           CLI: python -m kytoon.viz specs/ -o reports/figures
@@ -148,8 +157,9 @@ consciously replace them (and update this file + tests):
 
 ## 4. The test suite is a contract
 
-81 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
-test_geometry, test_l1_body_aero, test_l1_trim — all passing at last
+115 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
+test_geometry, test_l1_body_aero, test_l1_trim, and the lateral trio
+test_l1_mass3d / test_l1_lat_aero / test_l1_rig3d — all passing at last
 compile. Categories:
 
 - **Physics anchors** (must never change without a source): He net-lift
@@ -177,6 +187,15 @@ compile. Categories:
   gate per rigging option — TE pendant levels the hover (0.4–1.2 kN,
   main stays loaded), locked ctl drum can pin level (thin main margin),
   and the hang-leveling attach station cannot fly the mission.
+- **Lateral gates** (test_l1_mass3d/lat_aero/rig3d): every planar term
+  must come back unchanged at Γ = 0 (the reduction is the main guard on
+  the whole lateral stack); roll added inertia > 8× structural; roll
+  damping must match the closed form for a tapered wing; the wing must
+  stay weathercock-unstable and the bridle must beat it by > 5×;
+  differential trim must steer, monotonically and with coherent signs;
+  and α/β extraction is checked against AeroSandbox's own freestream
+  direction, since that convention is where this model is easiest to
+  get silently wrong.
 - **L1 pipeline gates** (test_l1_aero.py): the parametric-V3-through-VSM
   polar stays inside its measured error bands (CL_max ±15% of tunnel,
   (L/D)max in [−25%, +10%]); Mk I reaches cl_op pre-stall on its *own*
@@ -350,6 +369,45 @@ legitimately lower per m² and not comparable to AWE traction figures.
   b > c > a. Still open for the sim pass (statics can't answer it):
   the pendulum excursion envelope in ship frame on ~20 m of line — the
   spec the capture arm's motion planner actually needs.
+- **A winchlet CAN steer the Manta — the lateral model, Stages 1–3
+  (2026-07-25)**: the founding question was always lateral (differential
+  trim on two lines at ±0.38 span is a roll moment, which the
+  longitudinal model structurally cannot represent), so it needed 3D.
+  Three new solvers, all reducing exactly to the planar model and gated
+  against it: `l1_mass3d` (inertia tensor + 6×6 added mass),
+  `l1_lat_aero` (β sweep through AeroBuildup for CY/Cl/Cn; rate
+  derivatives by strip theory), `l1_rig3d` (3D force closure, two
+  control lines separated). Findings:
+  * **Roll is added-mass dominated 11.9×** (129 400 vs 10 880 kg·m²) —
+    πρc²/4 picks up a y² lever in roll that pitch has no analogue for.
+    A lateral model that skips the 6×6 rolls an order of magnitude too
+    fast. Sideslip added mass is *structurally* zero in strip theory
+    (no spanwise term), so sway inertia is bare airframe mass.
+  * **Steering works and is DAMPING-limited, not inertia-limited.**
+    Cl_p = −0.39 (−0.79 on the 2π bound). τ ≈ 0.3–0.5 s against
+    140 t·m² of roll + added inertia, so the air sets the rate: at
+    12 m/s, 2 kN of differential gives 3.3 °/s and 4 kN banks 30° in
+    5 s, using an eighth of the control pair's WLL. Operationally this
+    is a sustained-pull problem, not an impulse one. Roll rate falls
+    as 1/V (damping ∝ V, couple fixed).
+  * **The wing is weathercock-UNSTABLE (Cn_β = −0.005/rad)** — tailless
+    and finless — **and the bridle supplies what it lacks**: two lines
+    from a common pod to separated attachments give +108 kN·m/rad
+    against the wing's −4.3, a 25× margin, net +103 stable. This is why
+    the 3-line rig is load-bearing in yaw as well as pitch.
+  * **Dihedral is a real trade, not a free win.** Γ multiplies steering
+    authority (0.30 m differential: 7 m lateral at Γ=0 → 70 m at Γ=10)
+    and roll stiffness (2.5× at Γ=30, from CB rising 2.8 m above the
+    pull point), but it deepens the yaw divergence 13× and eats the
+    bridle margin: 25× at Γ=0 → 3.0× at Γ=10 → 1.7× at Γ=20. Γ ≳ 25°
+    would need a fin or a wider control-line base. Γ moves the CB
+    *vertically*, essentially not chordwise, so it does NOT relieve the
+    longitudinal instability finding below.
+  Caveats: AeroBuildup lateral derivatives are semi-empirical and not
+  benchmark-anchored; rate derivatives are strip theory reported with
+  their 2π bound; the wing is treated as rigid, so fabric warp under
+  asymmetric bridle load (which would only add authority) is omitted;
+  statics only.
 - **Mk V recovery procedure, from the Godot sim layer (2026-07-24)**:
   full winch-in 400 → 20 m at 5 m/s (godot/mkv_sim.gd
   `--recovery-test`, a validated GDScript port of l1_trim's dynamics
