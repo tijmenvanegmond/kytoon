@@ -23,8 +23,10 @@ const DT := 1.0 / 240.0            # physics substep
 const WINCH_RATE := 0.5            # m/s, control winchlet
 const MAIN_WINCH_RATE := 2.0       # m/s, main recovery winch
 const T_TEND := 3000.0             # N, ctl drum constant-tension when docked
-const THETA_HOLD_DEG := 10.0       # theta setpoint for pod autotrim
-const THETA_HOLD_GAIN := 0.08      # m of ctl-line per (deg-error * s)
+const ALPHA_HOLD_GAIN := 0.08      # m of ctl-line per (deg-error * s)
+const FP_CL := 1.0                 # flat-plate lift peak, CL = FP_CL·sin2α
+const FP_CD_MAX := 1.9             # bluff-body drag at 90°
+const FP_BLEND := 12.0             # degrees of blend out of the table
 const MAX_STEPS_PER_FRAME := 360   # frame-time guard for fast-forward
 const TIME_RATES := [0.25, 0.5, 1.0, 2.0, 4.0, 8.0]
 
@@ -60,12 +62,16 @@ var nodes_v: Array[Vector2] = []
 var n_seg := 0
 
 var payload_kg := 60.0
+var payload_on_pod := false
+var start_payload := -1.0           # >= 0 when set from the command line
+var start_wind := -1.0
 var wind_base := 12.0
 var sim_t := 0.0
 var gust_t0 := -1e9
 var paused := false
 var splashed := false
 var trim_hold := false
+var alpha_hold_deg := 6.0
 var scenario := 0
 var rate_idx := 2
 var mode := "interactive"           # | "selftest" | "recovery" | "demo"
@@ -96,15 +102,40 @@ func _ready() -> void:
 		elif arg.begins_with("--demo-out="):
 			mode = "demo"
 			out_path = arg.split("=")[1]
+		elif arg.begins_with("--fly-test="):
+			mode = "fly"
+			out_path = arg.split("=")[1]
+		elif arg.begins_with("--wind="):
+			start_wind = float(arg.split("=")[1])
+		elif arg.begins_with("--payload="):
+			start_payload = float(arg.split("=")[1])
+		elif arg == "--payload-on-pod":
+			payload_on_pod = true
 	_load_params()
+	if start_payload >= 0.0:
+		_apply_payload(start_payload)
 	if mode == "selftest":
+		# the gate always runs the spec config, whatever the flags say
+		payload_on_pod = false
 		_reset_reference()
 		seg_mode = false     # parity mode: straight line, matches l1_trim
 		_run_selftest()
 		return
 	if mode == "recovery":
+		var keep := payload_kg
 		_reset_reference()
+		if start_payload >= 0.0:
+			_apply_payload(keep)
 		_run_recovery_test()
+		return
+	if mode == "fly":
+		var hold := payload_kg
+		_reset_reference()
+		if start_payload >= 0.0:
+			_apply_payload(hold)
+		if start_wind > 0.0:
+			wind_base = start_wind
+		_run_fly_test()
 		return
 	_reset()
 	_build()
@@ -138,7 +169,12 @@ func _load_params() -> void:
 func _apply_payload(kg: float) -> void:
 	payload_kg = clampf(kg, 0.0, 1500.0)
 	var m_skin: float = P["m_skin"]
-	var m_pod: float = payload_kg + float(P["rigging_kg"])
+	# on the pod the payload hangs on the tether, not on the wing: it
+	# leaves the kite's mass, CG and inertia entirely and becomes a point
+	# mass on the line (see _substep_segmented). Segmented line only —
+	# the straight-line parity model has no line to hang it from.
+	var carried: float = 0.0 if payload_on_pod else payload_kg
+	var m_pod: float = carried + float(P["rigging_kg"])
 	var m_total: float = m_skin + m_pod
 	var p_main := Vector2(P["p_main"][0], P["p_main"][1])
 	var r_skin := Vector2(P["r_skin"][0], P["r_skin"][1])
@@ -153,9 +189,11 @@ func _apply_payload(kg: float) -> void:
 		+ float(P["m_added_z"]) * r_cg.x * r_cg.x + float(P["ia_d"])
 
 
-## Net static lift [kg]: positive floats, negative must be flown.
+## Net static lift of the whole system [kg] — payload counts wherever it
+## hangs. Positive floats, negative must be flown.
 func net_lift_kg() -> float:
-	return float(P["buoyancy_n"]) / float(P["g"]) - float(P["m_total"])
+	var hung: float = payload_kg if payload_on_pod else 0.0
+	return float(P["buoyancy_n"]) / float(P["g"]) - float(P["m_total"]) - hung
 
 
 ## The exact l1_trim reconstruction: 12 m/s mission trim on the full
@@ -273,6 +311,42 @@ func _rot(p: Array, th: float) -> Vector2:
 	return Vector2(p[0] * c + p[1] * sn, -p[0] * sn + p[1] * c)
 
 
+## (CL, CD, Cm) at alpha [deg].
+##
+## INSIDE the exported table (l1_trim's validated band, −8…24°) this is
+## the solver's own data interpolated — untouched, and the band the
+## parity gate covers.
+##
+## OUTSIDE it, blend to a flat plate. l1_trim makes no claim out here and
+## the table simply clamped, which let a stalled wing keep gliding on
+## CD ≈ 0.05 at α = −60° and turned every slack-line upset into a clean,
+## unrecoverable dive. A real fat wing at that attitude is a bluff body
+## (CD ≈ 1.9) that decelerates and tumbles until buoyancy and the line
+## take over. Cm still holds at the edge value — least trustworthy term,
+## and drag is what dominates the recovery. SIM ONLY: these coefficients
+## are not a design claim, and the HUD flags when you are out here.
+func _aero(a: float) -> Vector3:
+	var xs: Array = P["alphas"]
+	var cl := _interp(xs, P["cl"], a)
+	var cd := _interp(xs, P["cd"], a)
+	var cm := _interp(xs, P["cm"], a)
+	var lo: float = xs[0]
+	var hi: float = xs[xs.size() - 1]
+	if a >= lo and a <= hi:
+		return Vector3(cl, cd, cm)
+	var beyond: float = (a - hi) if a > hi else (lo - a)
+	var w: float = clampf(beyond / FP_BLEND, 0.0, 1.0)
+	var r := deg_to_rad(a)
+	var cl_fp: float = FP_CL * sin(2.0 * r)
+	var cd_fp: float = 0.06 + (FP_CD_MAX - 0.06) * sin(r) * sin(r)
+	return Vector3(lerpf(cl, cl_fp, w), lerpf(cd, cd_fp, w), cm)
+
+
+func _aero_extrapolated(a: float) -> bool:
+	var xs: Array = P["alphas"]
+	return a < float(xs[0]) or a > float(xs[xs.size() - 1])
+
+
 func _derivs(st: Array[float], U: float) -> Dictionary:
 	var x := st[0]
 	var z := st[1]
@@ -283,9 +357,10 @@ func _derivs(st: Array[float], U: float) -> Dictionary:
 	var wa := Vector2(U - u, -w)
 	var va: float = max(wa.length(), 1e-6)
 	var alpha := rad_to_deg(th + atan2(wa.y, wa.x))
-	var cl := _interp(P["alphas"], P["cl"], alpha)
-	var cd := _interp(P["alphas"], P["cd"], alpha)
-	var cm := _interp(P["alphas"], P["cm"], alpha)
+	var co := _aero(alpha)
+	var cl := co.x
+	var cd := co.y
+	var cm := co.z
 	var S: float = P["S"]
 	var c_ref: float = P["c_ref"]
 	var q: float = 0.5 * P["rho"] * va * va
@@ -331,7 +406,11 @@ func _derivs(st: Array[float], U: float) -> Dictionary:
 	var dist3: float = sqrt(v_len * v_len + P["y_ctl"] * P["y_ctl"])
 	var l0c_eff := l0c
 	if is_docked:
-		l0c_eff = max(l0c, dist3 - T_TEND / k_ctl)   # constant-tension tend
+		# constant-tension tend: a docked drum hauls slack IN as well as
+		# paying out. (It used to be max(l0c, ...), which only tensioned
+		# if the drum happened to be short — so a payed-out drum left the
+		# control pair dead slack through the whole hover.)
+		l0c_eff = dist3 - T_TEND / k_ctl
 	var t_ctl := 0.0
 	if dist3 > l0c_eff:
 		var uvc := v / v_len
@@ -455,14 +534,30 @@ func _substep_segmented(dt: float) -> Dictionary:
 			break
 		remaining -= seg_len
 
+	# per-node mass, so the pod can actually carry something: the payload
+	# is a point mass on the line, split over the two nodes it sits
+	# between (same weighting as its force reaction).
+	var node_m: Array[float] = []
+	node_m.resize(n_seg + 1)
+	for i in n_seg + 1:
+		node_m[i] = m_node
+	if payload_on_pod and payload_kg > 0.0:
+		var w_hi: float = 1.0 - pod_w
+		node_m[pod_i] += payload_kg * w_hi
+		node_m[pod_i - 1] += payload_kg * pod_w
+		var wt := Vector2(0.0, -payload_kg * float(P["g"]))
+		node_F[pod_i] += wt * w_hi
+		node_F[pod_i - 1] += wt * pod_w
+
 	# ---- kite forces (mirror of _derivs, main spring replaced) ----------
 	var th := s[2]
 	var wa := Vector2(U - s[3], -s[4])
 	var va: float = max(wa.length(), 1e-6)
 	var alpha := rad_to_deg(th + atan2(wa.y, wa.x))
-	var cl := _interp(P["alphas"], P["cl"], alpha)
-	var cd := _interp(P["alphas"], P["cd"], alpha)
-	var cm := _interp(P["alphas"], P["cm"], alpha)
+	var co := _aero(alpha)
+	var cl := co.x
+	var cd := co.y
+	var cm := co.z
 	var S: float = P["S"]
 	var c_ref: float = P["c_ref"]
 	var q: float = 0.5 * P["rho"] * va * va
@@ -490,14 +585,18 @@ func _substep_segmented(dt: float) -> Dictionary:
 	var v := pod_p - r_c
 	var v_len := v.length()
 	var dist3: float = sqrt(v_len * v_len + P["y_ctl"] * P["y_ctl"])
-	var l0c_eff := l0c
-	if is_docked:
-		l0c_eff = max(l0c, dist3 - T_TEND / k_ctl)
 	var t_ctl := 0.0
-	if dist3 > l0c_eff:
-		var uvc := v / maxf(v_len, 1e-9)
-		t_ctl = maxf(k_ctl * (dist3 - l0c_eff)
+	var uvc := v / maxf(v_len, 1e-9)
+	if is_docked:
+		# a docked drum holds constant tension however the kite moves —
+		# that is what "auto-tend" means. Modelling it as a spring around
+		# a shifting rest length let the line damping cancel it, leaving
+		# the pair dead slack exactly when attitude authority is needed.
+		t_ctl = T_TEND
+	elif dist3 > l0c:
+		t_ctl = maxf(k_ctl * (dist3 - l0c)
 			- P["c_line"] * (v_c - pod_v).dot(uvc), 0.0)
+	if t_ctl > 0.0:
 		var fc := t_ctl * (v_len / dist3) * uvc
 		F += fc
 		M += rw_c.y * fc.x - rw_c.x * fc.y
@@ -509,7 +608,7 @@ func _substep_segmented(dt: float) -> Dictionary:
 
 	# ---- integrate (semi-implicit Euler) --------------------------------
 	for i in range(1, n_seg):
-		nodes_v[i] += node_F[i] / m_node * dt
+		nodes_v[i] += node_F[i] / node_m[i] * dt
 		nodes_p[i] += nodes_v[i] * dt
 	var acc := [F.x / (P["m_total"] + P["m_added_x"]),
 				F.y / (P["m_total"] + P["m_added_z"]),
@@ -602,6 +701,32 @@ func _run_recovery_test() -> void:
 	get_tree().quit()
 
 
+## "Just hang there": locked winches, segmented line, 90 s with a gust at
+## t=40. Honours --wind / --payload / --payload-on-pod, so it answers
+## configuration questions the parity gate deliberately refuses to.
+func _run_fly_test() -> void:
+	var f := FileAccess.open(out_path, FileAccess.WRITE)
+	f.store_line("t,U,alpha,theta_deg,x,z,T_main,T_ctl")
+	gust_t0 = 40.0
+	var dt := 0.004
+	var rec := 0.0
+	while sim_t < 90.0:
+		var out := _step(dt)
+		if sim_t >= rec:
+			f.store_line("%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.1f,%.1f"
+				% [sim_t, wind_now(), out["alpha"], rad_to_deg(s[2]),
+				   s[0], s[1], out["t_main"], out["t_ctl"]])
+			rec += 0.25
+		if s[1] < 1.0:
+			print("DITCHED at t=%.1f" % sim_t)
+			break
+	f.close()
+	print("fly test written: %s  (payload %.0f kg on %s, wind %.1f)"
+		% [out_path, payload_kg, "pod" if payload_on_pod else "kite",
+		   wind_base])
+	get_tree().quit()
+
+
 func _run_demo() -> void:
 	# scripted: settle, gust, winch out (depower), winch in, wind up
 	var script := [
@@ -679,9 +804,14 @@ func _handle_input(delta: float) -> void:
 		l0c = clampf(l0c - WINCH_RATE * delta, l0c_trim - 3.0, l0c_trim + 3.0)
 	if Input.is_action_pressed("sim_trim_out"):
 		l0c = clampf(l0c + WINCH_RATE * delta, l0c_trim - 3.0, l0c_trim + 3.0)
+	# ALPHA-hold, not attitude-hold: hauling the kite in adds inflow, so
+	# holding theta lets alpha run away — it climbs, overflies the ship
+	# and noses over. This is the same law the recovery procedure needed
+	# (godot/README.md); holding alpha, winching in just descends.
 	if trim_hold and not manual:
-		var err := rad_to_deg(s[2]) - THETA_HOLD_DEG
-		l0c = clampf(l0c + THETA_HOLD_GAIN * err * delta,
+		var err: float = float(last_out.get("alpha", alpha_hold_deg)) \
+			- alpha_hold_deg
+		l0c = clampf(l0c + ALPHA_HOLD_GAIN * err * delta,
 			l0c_trim - 3.0, l0c_trim + 3.0)
 	if Input.is_action_pressed("sim_payload_up"):
 		_apply_payload(payload_kg + 120.0 * delta)
@@ -708,10 +838,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		paused = not paused
 	elif event.is_action_pressed("sim_trim_hold"):
 		trim_hold = not trim_hold
+		if trim_hold:      # capture whatever you are flying right now
+			alpha_hold_deg = clampf(
+				float(last_out.get("alpha", 6.0)), -2.0, 16.0)
 	elif event.is_action_pressed("sim_time_slower"):
 		rate_idx = maxi(rate_idx - 1, 0)
 	elif event.is_action_pressed("sim_time_faster"):
 		rate_idx = mini(rate_idx + 1, TIME_RATES.size() - 1)
+	elif event.is_action_pressed("sim_payload_where"):
+		payload_on_pod = not payload_on_pod
+		if payload_on_pod:
+			seg_mode = true          # needs the line to hang from
+		_apply_payload(payload_kg)
 	elif event.is_action_pressed("sim_camera"):
 		cam.cycle()
 	elif event.is_action_pressed("sim_help"):
@@ -734,6 +872,9 @@ func _hud_state(dt_real: float) -> Dictionary:
 		"alt": s[1], "line": l0m, "trim": l0c - l0c_trim,
 		"t_main": out.get("t_main", 0.0), "t_ctl": out.get("t_ctl", 0.0),
 		"payload": payload_kg, "net_lift": net_lift_kg(),
+		"payload_where": "pod" if payload_on_pod else "kite",
+		"hold_alpha": alpha_hold_deg,
+		"extrap": _aero_extrapolated(out.get("alpha", 0.0)),
 		"wll": P["wll_n"], "ctl_cap": P["ctl_cap_n"],
 		"docked": docked, "hold": trim_hold, "paused": paused,
 		"splash": splashed, "gust": (sim_t - gust_t0) <= 6.0,
@@ -802,6 +943,9 @@ func _update_visuals(out: Dictionary) -> void:
 	var pod_v: Vector2 = out["pod"]
 	var pod_pos := Vector3(pod_v.x, pod_v.y, 0)
 	pod.position = pod_pos
+	# a laden pod is visibly a gondola, not a winchlet
+	var bulk := 1.0 + (2.2 * payload_kg / 800.0 if payload_on_pod else 0.0)
+	pod.scale = Vector3(bulk, bulk, bulk)
 	var rc: Vector2 = out["r_c"]
 	var fairlead := Vector3(P["fairlead"][0], P["fairlead"][1], 0)
 

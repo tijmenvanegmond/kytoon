@@ -30,18 +30,19 @@ Beyond `l1_trim`, using the same laws:
   applied to the line nodes.
 - **Variable line length**: stiffness follows k = EA/L as the winch reels.
 - **Pod docking**: when the line gets shorter than the pod standoff the
-  pod pins near the fairlead and its drum auto-tends (~3 kN). Pitch
-  pinning goes soft — an honest consequence, not a bug.
-- **Payload as an option** (see below).
+  pod pins near the fairlead and its drum auto-tends at a constant 3 kN.
+- **Post-stall aero outside the validated table** (see below).
+- **Payload as an option**, on the kite or on the pod (see below).
 
 ### Controls
 
 | key | |
 |---|---|
 | ↑ / ↓ | wind, 2–26 m/s |
-| `-` / `=` | payload (see below) |
+| `-` / `=` | payload mass |
+| P | payload on kite ↔ on pod |
 | W / S | winchlet trim (control-line length) |
-| T | trim autohold (θ → 10°) |
+| T | hold current α (see below — α, not θ) |
 | I / O | main winch in/out, 2 m/s — hold Shift for ×5 |
 | G | +6 m/s 1-cos gust, 6 s |
 | `[` / `]` | time rate, 0.25× … 8× (recovery takes 190 s at 1×) |
@@ -73,19 +74,62 @@ flown and comes down when the wind drops. The HUD's *net lift* row turns
 red there. Carrying 500 kg buoyantly would need roughly +470 m³ of helium
 (~1000 m³ vs today's 530) — a spec conversation, not a sim setting.
 
+**Where the payload hangs matters** (`P`). On the kite it rides the main
+bridle attach and is part of the wing's mass, CG and inertia. On the pod
+it hangs on the tether 50 m below as a point mass on the line — the wing
+gets lighter and more buoyant, and the line above the pod carries the
+weight. 500 kg at 12 m/s, locked winches, +6 m/s gust:
+
+| carried on | θ | α | T_main | gust α | gust T |
+|---|--:|--:|--:|--:|--:|
+| kite | 15.2° | 15.1° | 18.3 kN | 17.4° | 36.7 kN |
+| pod | 13.5° | 13.4° | 20.7 kN | 15.4° | 41.6 kN |
+
+Podding it buys ~2° of stall margin and a flatter wing for ~13 % more
+line tension (both well inside the 66.7 kN WLL). It does **not** help
+the static problem — the system still has to lift the same mass.
+
+## Aero outside the validated table
+
+`l1_trim`'s polar covers α ∈ [−8°, 24°]. Inside that band the sim
+interpolates the solver's own data and the parity gate covers it.
+Outside, the sim blends over 12° to a flat plate
+(CL = sin 2α, CD = 0.06 … 1.9 sin²α); Cm holds at the edge value.
+
+This is not cosmetic. The table used to simply **clamp**, so a stalled
+wing kept gliding on CD ≈ 0.05 at α = −60° — every slack-line upset
+became a clean, unrecoverable dive. A real fat wing there is a bluff body
+that decelerates and tumbles until buoyancy and the line take over. The
+HUD raises **AERO EXTRAPOLATED** whenever you are out of the validated
+band: those coefficients are a plausibility model, never a design claim.
+
+Worth knowing *why* upsets happen at all: free-flying, the airframe's
+neutral point is 1.06 m aft of the centre c/4 but the CG sits at 2.89 m —
+a static margin of **−1.83 m (−20 % MAC)**, divergent at +2.3 kN·m/deg.
+Lose line tension and it *will* nose over. That is the same fact that
+makes the 3-line rig load-bearing rather than optional.
+
 ## Headless modes
 
 ```
 godot --path godot sim/mkv_sim.tscn --headless -- --selftest=out.csv
 godot --path godot sim/mkv_sim.tscn --headless -- --recovery-test=out.csv
+godot --path godot sim/mkv_sim.tscn --headless -- --fly-test=out.csv \
+      --wind=12 --payload=500 --payload-on-pod
 godot --path godot sim/mkv_sim.tscn -- --demo-out=DIR        # needs a GPU
 ```
 
+`--fly-test` is "just hang there": locked winches, 90 s, gust at t=40,
+and it honours `--wind` / `--payload` / `--payload-on-pod`, so it answers
+configuration questions the parity gate deliberately refuses to. Those
+flags also work on the interactive run.
+
 **`--selftest` is the parity gate.** It runs the locked-winch gust on the
-straight-line model from the exact `l1_trim` reconstruction (never a
-scenario preset, never a non-spec payload — those leak in and the gate
-silently stops testing what it claims; that regression happened once
-already) and must match `renders/mkv_replay.csv`:
+straight-line model from the exact `l1_trim` reconstruction and ignores
+every configuration flag — no scenario preset, no non-spec payload, never
+podded. Those leak in and the gate silently stops testing what it claims;
+that regression has already happened once. It must match
+`renders/mkv_replay.csv`:
 
 ```
 python godot/tools/export_mkv_replay.py     # Python reference trajectory
@@ -128,19 +172,27 @@ three naive ways before it works:
    400 m of elastic line pogo-bounces the 3-t effective mass (ζ ≈ 0.16)
    into slack/snap cycles (observed 63–150 kN spikes, tumbling).
 2. **α-hold on the winchlet, not θ-hold** — descending at 2 m/s in 5 m/s
-   wind adds ~22° of inflow; holding attitude runs the wing past stall.
-   Trim nose-down on the way down (α ≈ 6°), re-trim for the hover.
+   wind adds ~22° of inflow; holding attitude lets α run away, so the
+   kite climbs, overflies the ship and noses over. Hold α (interactive:
+   `T` captures whatever α you are flying) and winching in just descends.
 3. **Stay powered** — a buoyant kite needs no depower to descend (the
    winch trivially beats +2.8 kN net buoyancy) and slack control lines
    mean no attitude authority at all.
 
-Result: 190 s descent, tension never above ~10 kN, buoyant hover at ~20 m.
-The hover *attitude* is not a sim problem — it is closed-form statics
-(`l1_trim.hang_trim`): the rig hangs −41° nose-down at zero q (−57° with
-5 m/s residual, matching this sim's endgame). Level-hover options are
-solved and gated in `test_l1_trim`. What the sim still owes once the
-rigging is chosen: the transient into the hover and the pendulum
-excursion envelope in ship frame — the capture arm's chase spec.
+Result: ~190 s descent, tension ≤ 20 kN, hover at ~27 m with **θ ≈ +2°**
+— level. Getting there needed one more fix: the docked drum's "auto-tend"
+was modelled as a spring around a shifting rest length, and the line
+damping cancelled it, leaving the control pair dead slack exactly when
+attitude authority was needed (the kite hung −50° and ditched at 216 s).
+A constant-tension drum is what "tend" means; implemented that way it
+holds 3.00 kN and levels the hover.
+
+That resolves an open question the other way round from the earlier note:
+the tension-tend option **does** work — the aft capture pendant is no
+longer the only route to a level hover. Static hang (`l1_trim.hang_trim`,
+−41° at zero q) still describes the *untended* rig. What the sim still
+owes: the pendulum excursion envelope in ship frame — the capture arm's
+chase spec.
 
 ## Conventions / gotchas
 

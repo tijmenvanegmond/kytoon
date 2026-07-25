@@ -362,6 +362,22 @@ legitimately lower per m² and not comparable to AWE traction figures.
   T ≤ 10 kN, buoyant hover at ~23 m. OPEN: hover attitude after the pod
   docks is softly constrained (tended drum, near-zero q) — capture-state
   attitude needs pod-as-node dynamics or L2. Details in godot/README.md.
+- **Capture hover levels on a constant-tension tend (2026-07-25, Godot
+  sim)**: the docked winchlet drum holding 3 kN on the control pair puts
+  the hover at θ ≈ +2° (vs the −41° untended static hang), tension ≤ 20 kN
+  through the descent. So the tension-tend rigging option works and the
+  aft capture pendant is not the only route to a level hover — both stay
+  on the table. Two model errors had hidden this: the tend was a spring
+  around a shifting rest length whose damping cancelled it (dead-slack
+  control lines through the whole hover, kite ditched), and the aero table
+  simply CLAMPED outside its validated −8…24° band, so a stalled wing kept
+  gliding on CD ≈ 0.05 at α = −60° and every slack-line upset became an
+  unrecoverable dive. The sim now blends to a flat plate outside the band
+  (CD → 1.9) and flags it on the HUD; the Python solvers are unchanged and
+  the parity gate still matches to 0.02° in α. Related: free-flying, the
+  airframe's static margin is **−1.83 m (−20 % MAC)** — CG 2.89 m vs
+  neutral point 1.06 m — so losing line tension always ends in a pitch
+  departure. Another reason the 3-line rig is load-bearing.
 - **Mk V tow is nearly vertical (2026-07-24)**: the same trim map puts the
   line at 83–87° elevation across the envelope (buoyancy + high bound-L/D)
   — at 12 m/s, 24 kN line tension is only ~3–5 kN of *horizontal* pull.

@@ -54,7 +54,7 @@ func _ready() -> void:
 	_pill_box.add_theme_constant_override("separation", 6)
 	left.add_child(_pill_box)
 	for id in ["PAUSED", "GUST", "POD DOCKED", "TRIM HOLD", "MAIN SLACK",
-			   "SPLASH"]:
+			   "AERO EXTRAPOLATED", "SPLASH"]:
 		_pills[id] = _make_pill(id)
 		_pill_box.add_child(_pills[id])
 
@@ -138,7 +138,7 @@ func _build_readouts() -> PanelContainer:
 	_row(box, "wind", "m/s")
 	box.add_child(_sep())
 	_section(box, "LOAD")
-	_row(box, "payload", "kg")
+	_row(box, "payload", "kg on kite")
 	_row(box, "net lift", "kg")
 	box.add_child(_sep())
 	_section(box, "RIG")
@@ -146,6 +146,7 @@ func _build_readouts() -> PanelContainer:
 	_row(box, "trim", "m")
 	_bar_row(box, "T main", "kN")
 	_bar_row(box, "T control", "kN")
+	_row(box, "hold α", "")
 	box.add_child(_sep())
 	_section(box, "SIM")
 	_row(box, "time", "s")
@@ -246,8 +247,9 @@ func _build_legend() -> PanelContainer:
 	box.add_theme_constant_override("separation", 1)
 	panel.add_child(box)
 	for pair in [["Up / Down", "wind"], ["- / =", "payload"],
+				 ["P", "payload kite / pod"],
 				 ["W / S", "winchlet trim"],
-				 ["T", "trim autohold"], ["I / O", "main winch (Shift ×5)"],
+				 ["T", "hold current α"], ["I / O", "main winch (Shift ×5)"],
 				 ["G", "gust +6 m/s"], ["[ / ]", "time rate"],
 				 ["1 / 2 / 3", "scenario"], ["C", "camera"],
 				 ["drag / wheel", "orbit / zoom"], ["Space", "pause"],
@@ -283,6 +285,8 @@ func show_state(d: Dictionary) -> void:
 	_put("altitude", "%.0f" % d["alt"])
 	_put("wind", "%.1f" % d["wind"])
 	_put("payload", "%.0f" % d["payload"])
+	_rows["payload"].get_parent().get_child(2).text = "kg on " \
+		+ str(d["payload_where"])
 	_put("net lift", "%+.0f" % d["net_lift"])
 	# negative net lift means the airframe no longer floats — it has to be
 	# flown, and it sinks the moment the wind drops
@@ -292,6 +296,7 @@ func show_state(d: Dictionary) -> void:
 	_put("trim", "%+.2f" % d["trim"])
 	_put("T main", "%.1f" % (d["t_main"] / 1e3))
 	_put("T control", "%.2f" % (d["t_ctl"] / 1e3))
+	_put("hold α", ("%.1f°" % d["hold_alpha"]) if d["hold"] else "off")
 	_put("time", "%.0f" % d["t"])
 	_put("rate", _rate_text(d))
 	_put("segments", "%d" % d["n_seg"])
@@ -311,6 +316,7 @@ func show_state(d: Dictionary) -> void:
 	_pill("POD DOCKED", d["docked"])
 	_pill("TRIM HOLD", d["hold"])
 	_pill("MAIN SLACK", d["t_main"] < 50.0)
+	_pill("AERO EXTRAPOLATED", d["extrap"])
 	_pill("SPLASH", d["splash"])
 
 	_banner.visible = d["splash"]
