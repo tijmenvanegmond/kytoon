@@ -35,8 +35,11 @@ MUTED = "#898781"
 GRID = "#e1e0d9"
 AXIS = "#c3c2b7"
 CRITICAL = "#d03b3b"          # status: gate exceeded — never used as a series
+# Default colors for any Mk/type - will be assigned dynamically
 MK_COLOR = {"I": "#2a78d6", "II": "#1baf7a", "III": "#eda100",
-            "IV": "#008300", "V": "#4a3aa7"}
+            "IV": "#008300", "V": "#4a3aa7",
+            "A": "#4CAF50", "B": "#2196F3", "C": "#FF9800",
+            "D": "#9C27B0", "E": "#FFEB3B"}
 SERIES = ["#2a78d6", "#1baf7a", "#eda100", "#008300"]   # fixed slot order
 SEQ_BLUE = ["#86b6ef", "#5598e7", "#2a78d6", "#1c5cab", "#104281"]  # ordinal
 
@@ -63,7 +66,7 @@ def _fig(w: float = 8.0, h: float = 4.5):
 
 # ---------------------------------------------------------------------------
 def fig_fleet_envelopes(reports: list[L0Report]):
-    """Range bars: each Mk's wind envelope, limiter annotated, 20 m/s gate."""
+    """Range bars: each spec's wind envelope, limiter annotated, 20 m/s gate."""
     fig = _fig(8.0, 3.6)
     ax = fig.add_subplot(111)
     _style(ax)
@@ -73,7 +76,7 @@ def fig_fleet_envelopes(reports: list[L0Report]):
         mk = rep.spec.mk
         env = rep.envelope
         ax.barh(y, env.v_max_ms - env.v_min_ms, left=env.v_min_ms, height=0.5,
-                color=MK_COLOR.get(mk, SERIES[0]), edgecolor=SURFACE,
+                color=MK_COLOR.get(mk, SERIES[y % len(SERIES)]), edgecolor=SURFACE,
                 linewidth=2, zorder=3)
         ax.text(-0.6, y, rep.spec.name, ha="right", va="center",
                 fontsize=10, color=INK)
@@ -96,16 +99,16 @@ def fig_fleet_envelopes(reports: list[L0Report]):
 # ---------------------------------------------------------------------------
 def fig_structure_margins(reports: list[L0Report]):
     """Utilization bars per member: hoop vs its 0.25 gate, bending vs 1.0."""
-    rows = [(rep.spec.mk, m) for rep in reports for m in rep.structure]
+    rows = [(rep.spec, m) for rep in reports for m in rep.structure]
     fig = _fig(8.0, 0.62 * len(rows) + 1.6)
     ax = fig.add_subplot(111)
     _style(ax)
 
     labels, ys = [], []
-    for i, (mk, m) in enumerate(rows):
+    for i, (spec, m) in enumerate(rows):
         y = len(rows) - 1 - i
         ys.append(y)
-        labels.append(f"Mk {mk} · {m.label}")
+        labels.append(f"{spec.name} · {m.label}")
         pairs = [(m.hoop_utilization, 0.25, -0.16, "hoop")]
         if not math.isnan(m.bending_utilization) and m.bending_utilization > 0:
             pairs.append((m.bending_utilization, 1.0, 0.16, "bending"))
@@ -314,16 +317,32 @@ def generate_all(spec_dir: str | Path, out_dir: str | Path) -> list[Path]:
     save(fig_structure_margins(reports), "structure_margins.png")
 
     by_mk = {s.mk: s for s in specs}
-    try:
-        save(fig_polar(by_mk["I"]), "polar_mk1.png")
-        save(fig_polar(by_mk["III"]), "polar_mk3.png")
-    except ImportError:
-        print("l1 extra (VSM) absent — skipping polar figures")
-    try:
-        save(fig_tether_profiles(by_mk["I"]), "tether_mk1.png")
-        save(fig_tether_profiles(by_mk["IV"]), "tether_mk4.png")
-    except ImportError:
-        print("l1 extra (moorpy) absent — skipping tether figures")
+    
+    # Generate polar plots for first and middle spec if available
+    mk_list = list(by_mk.keys())
+    if len(mk_list) >= 1:
+        try:
+            save(fig_polar(by_mk[mk_list[0]]), f"polar_{mk_list[0]}.png")
+        except ImportError:
+            print("l1 extra (VSM) absent — skipping polar figures")
+    if len(mk_list) >= 3:
+        try:
+            save(fig_polar(by_mk[mk_list[2]]), f"polar_{mk_list[2]}.png")
+        except ImportError:
+            pass  # Already printed message above
+    
+    # Generate tether profiles for first and last spec if available
+    if len(mk_list) >= 1:
+        try:
+            save(fig_tether_profiles(by_mk[mk_list[0]]), f"tether_{mk_list[0]}.png")
+        except ImportError:
+            print("l1 extra (moorpy) absent — skipping tether figures")
+    if len(mk_list) >= 2:
+        try:
+            save(fig_tether_profiles(by_mk[mk_list[-1]]), f"tether_{mk_list[-1]}.png")
+        except ImportError:
+            pass  # Already printed message above
+    
     try:
         save(fig_fleet_geometry(specs), "fleet_geometry.png")
     except ImportError:
