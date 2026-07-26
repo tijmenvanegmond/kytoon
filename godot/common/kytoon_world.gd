@@ -14,6 +14,8 @@ extends RefCounted
 const MK_COLOR := {
 	"I": Color("2a78d6"), "II": Color("1baf7a"), "III": Color("eda100"),
 	"IV": Color("008300"), "V": Color("4a3aa7"),
+	"A": Color("4CAF50"), "B": Color("2196F3"), "C": Color("FF9800"),
+	"D": Color("9C27B0"), "E": Color("FFEB3B"),
 }
 const SLACK := Color(0.85, 0.85, 0.82)
 const LOADED := Color(0.95, 0.15, 0.1)

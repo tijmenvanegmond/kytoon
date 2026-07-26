@@ -279,6 +279,12 @@ func toggle_legend() -> void:
 	_legend.visible = not _legend.visible
 
 
+func update_type_display(type_name: String, display_name: String) -> void:
+	# Update the title to show current Manta type
+	if _title:
+		_title.text = "Manta — %s" % display_name
+
+
 func show_state(d: Dictionary) -> void:
 	_put("alpha", "%.1f" % d["alpha"])
 	_put("theta", "%.1f" % d["theta"])
@@ -300,8 +306,8 @@ func show_state(d: Dictionary) -> void:
 	_put("time", "%.0f" % d["t"])
 	_put("rate", _rate_text(d))
 	_put("segments", "%d" % d["n_seg"])
-	_rows["_sub"].text = "%s  ·  %s cam  ·  GDScript port of l1_trim" % [
-		d["scenario"], d["camera"]]
+	_rows["_sub"].text = "%s  ·  %s cam  ·  Type %s  ·  GDScript port of l1_trim" % [
+		d["scenario"], d["camera"], d.get("manta_type", "B")]
 
 	_set_bar("T main", d["t_main"] / d["wll"])
 	_set_bar("T control", d["t_ctl"] / d["ctl_cap"])

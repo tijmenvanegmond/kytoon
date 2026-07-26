@@ -85,17 +85,29 @@ func switch_to_previous() -> bool:
 
 
 func load_spec_file(spec_path: String) -> Dictionary:
-	# Try to load YAML spec file
-	# Note: Godot doesn't natively support YAML, so we need a custom loader
-	# or use a pre-exported JSON version
-	
-	# For now, emit a signal with the path so the sim can handle it
-	var spec_data = {
-		"path": spec_path,
-		"type": current_type
-	}
-	emit_signal("manta_spec_loaded", spec_data)
-	return spec_data
+	# Load from pre-exported JSON specs
+	var json_file = FileAccess.open("res://data/manta_specs.json", FileAccess.READ)
+	if json_file:
+		var json = JSON.new()
+		if json.parse(json_file.get_as_text()) == OK:
+			var data = json.get_data()
+			var specs = data.get("manta_specs", {})
+			# spec_path is like "specs/manta/manta_typeB.yaml"
+			# Extract the type from the path
+			var parts = spec_path.split("/")
+			var filename = parts[-1]
+			var type_name = filename.get_slice("manta_", ".yaml")
+			if specs.has(type_name):
+				var spec_data = specs[type_name]
+				emit_signal("manta_spec_loaded", spec_data)
+				return spec_data
+			else:
+				printerr("Manta Type Loader: Spec not found in JSON: ", type_name)
+		else:
+			printerr("Manta Type Loader: Failed to parse JSON: ", json.get_error_message())
+	else:
+		printerr("Manta Type Loader: Could not open manta_specs.json")
+	return {}
 
 
 func get_current_type() -> String:

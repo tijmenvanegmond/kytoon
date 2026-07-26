@@ -88,10 +88,18 @@ var line_ctl_l: MeshInstance3D
 var line_ctl_r: MeshInstance3D
 var mat_main: StandardMaterial3D
 var mat_ctl: StandardMaterial3D
+var manta_type_loader: Node
+var current_manta_type: String = "B"
 var last_out: Dictionary = {}
 
 
 func _ready() -> void:
+	# Initialize Manta Type Loader
+	var type_loader_scene = preload("res://common/manta_type_loader.tscn")
+	manta_type_loader = type_loader_scene.instantiate()
+	add_child(manta_type_loader)
+	manta_type_loader.connect("manta_type_changed", self, "_on_manta_type_changed")
+	
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--selftest="):
 			mode = "selftest"
@@ -111,6 +119,10 @@ func _ready() -> void:
 			start_payload = float(arg.split("=")[1])
 		elif arg == "--payload-on-pod":
 			payload_on_pod = true
+		elif arg.begins_with("--manta-type="):
+			var type_name = arg.split("=")[1]
+			manta_type_loader.switch_to_type(type_name)
+			current_manta_type = type_name
 	_load_params()
 	if start_payload >= 0.0:
 		_apply_payload(start_payload)
@@ -144,7 +156,23 @@ func _ready() -> void:
 		_run_demo()
 
 
-func _load_params() -> void:
+func _load_params(type_name: String = "B") -> void:
+	# Try to load Manta type-specific params first
+	var manta_specs_file = FileAccess.open("res://data/manta_specs.json", FileAccess.READ)
+	if manta_specs_file:
+		var json = JSON.new()
+		if json.parse(manta_specs_file.get_as_text()) == OK:
+			var data = json.get_data()
+			var specs = data.get("manta_specs", {})
+			if specs.has(type_name):
+				var spec = specs[type_name]
+				# Build P dictionary from spec
+				P = _build_params_from_spec(spec, type_name)
+				current_manta_type = type_name
+				print("Loaded Manta Type ", type_name, " parameters")
+				return
+	
+	# Fallback to original Mk V params
 	var f := FileAccess.open("res://data/mkv_sim_params.json", FileAccess.READ)
 	if f == null:
 		push_error("missing data/mkv_sim_params.json — run "
@@ -159,6 +187,118 @@ func _load_params() -> void:
 	l_ctl0 = sqrt(P["pod_standoff"] * P["pod_standoff"] + ctl_rest2)
 	ea_ctl = P["k_ctl"] * l_ctl0
 	_apply_payload(P["payload_ref_kg"])
+
+
+func _build_params_from_spec(spec: Dictionary, type_name: String) -> Dictionary:
+	# Build simulation parameters from Manta spec JSON
+	var P := {}
+	
+	# Basic properties
+	P["name"] = spec.get("name", "Manta Type " + type_name)
+	P["wing_area"] = spec.get("wing_area", 288.0)
+	P["helium_volume"] = spec.get("helium_volume", 530.0)
+	P["total_mass"] = spec.get("total_mass", 271.0)
+	P["structure_mass"] = spec.get("structure_mass", 211.0)
+	P["payload_ref_kg"] = spec.get("payload_mass", 60.0)
+	P["rigging_kg"] = spec.get("rigging_mass", 50.0)
+	
+	# Fat wing properties
+	if spec.has("fat_wing"):
+		var fw = spec["fat_wing"]
+		P["span"] = fw.get("span", 32.0)
+		P["chord"] = fw.get("chord", 13.3)
+		P["taper"] = fw.get("taper", 0.35)
+		P["thickness_ratio"] = fw.get("thickness_ratio", 0.28)
+		P["n_cells"] = fw.get("n_cells", 5)
+		P["pressure_bar"] = fw.get("pressure_bar", 0.10)
+		P["dihedral_deg"] = fw.get("dihedral_deg", 10.0)
+	
+	# Canopy properties
+	if spec.has("canopy"):
+		var c = spec["canopy"]
+		P["cl_op"] = c.get("cl_op", 0.7)
+		P["cl_max"] = c.get("cl_max", 1.1)
+		P["cd_op"] = c.get("cd_op", 0.10)
+		P["twin_skin"] = c.get("twin_skin", true)
+	
+	# Tether properties
+	if spec.has("tether"):
+		var t = spec["tether"]
+		P["tether_length"] = t.get("length", 400.0)
+		P["tether_diameter_mm"] = t.get("diameter_mm", 16.0)
+		P["tether_linear_density"] = t.get("linear_density", 0.14)
+		P["tether_mbl_kn"] = t.get("mbl_kn", 200.0)
+		P["tether_safety_factor"] = t.get("safety_factor", 3.0)
+		P["elevation_deg"] = t.get("elevation_deg", 50.0)
+	
+	# Bridle properties
+	if spec.has("bridle"):
+		var b = spec["bridle"]
+		P["bridle_positions"] = b.get("positions", [0.12, 0.50, 0.88])
+		P["bridle_chord_fraction"] = b.get("chord_fraction", 0.35)
+		P["control_mbl_kn"] = b.get("control_mbl_kn", 50.0)
+		P["pod_standoff"] = b.get("pod_standoff_m", 50.0)
+	
+	# Fin properties
+	if spec.has("fin"):
+		var f = spec["fin"]
+		P["fin_area"] = f.get("area", 12.0)
+		P["fin_arm"] = f.get("arm", 18.0)
+	
+	# Compute derived parameters (simplified - would need full l1_trim port)
+	P["k_main"] = 100000.0  # Placeholder - should be computed from tether
+	P["k_ctl"] = 50000.0   # Placeholder - should be computed from control lines
+	
+	# Mass properties
+	P["m_skin"] = P["structure_mass"]
+	P["m_pod"] = P["rigging_kg"] + P["payload_ref_kg"]
+	
+	# Geometry
+	P["p_main"] = [0.0, 0.0]  # Main attachment point
+	P["p_ctl"] = [1.0, 0.0]   # Control line attachment
+	P["y_ctl"] = 5.0          # Control line span
+	P["fairlead"] = [0.0, -50.0]  # Fairlead position
+	P["r_skin"] = [0.0, 0.0]    # CG of skin
+	
+	# Aerodynamic limits
+	P["wll_n"] = P["tether_mbl_kn"] * 1000.0 * P["tether_safety_factor"]
+	P["ctl_cap_n"] = P["control_mbl_kn"] * 1000.0
+	
+	# Initial state (from L1 trim)
+	P["init"] = {
+		"state": [0.0, 0.0, 0.0, 12.0, 0.0, 0.0],  # x, z, theta, u, w, omega
+		"l0_main": P["tether_length"] * 0.95,
+		"l0_ctl": 50.0,
+		"wind": 12.0
+	}
+	
+	return P
+
+
+func _on_manta_type_changed(type_name: String, config: Dictionary) -> void:
+	current_manta_type = type_name
+	_load_params(type_name)
+	
+	# Update kite color based on type
+	if kite and kite.get_child_count() > 0:
+		var kite_model = kite.get_child(0)
+		if kite_model is MeshInstance3D:
+			var color = KytoonWorld.MK_COLOR.get(type_name, KytoonWorld.MK_COLOR["B"])
+			if kite_model.material_override:
+				kite_model.material_override.albedo_color = color
+			else:
+				var mat = StandardMaterial3D.new()
+				mat.albedo_color = color
+				kite_model.material_override = mat
+	
+	# Update HUD to show current type
+	if hud:
+		hud.update_type_display(type_name, config.get("display_name", type_name))
+	
+	# Rebuild the sim with new parameters
+	if mode == "interactive":
+		_reset()
+		_build()
 
 
 ## Payload is a sim OPTION, not a spec change: fly the design at other
@@ -858,6 +998,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		hud.toggle_legend()
 	elif event.is_action_pressed("sim_quit"):
 		get_tree().quit()
+	# Manta type switching
+	elif event.is_action_pressed("manta_next"):
+		manta_type_loader.switch_to_next()
+	elif event.is_action_pressed("manta_prev"):
+		manta_type_loader.switch_to_previous()
+	elif event.is_action_pressed("manta_menu"):
+		# For now, just cycle to next - full menu would need UI
+		manta_type_loader.switch_to_next()
 	else:
 		for i in SCENARIOS.size():
 			if event.is_action_pressed("sim_scenario_%d" % (i + 1)):
@@ -883,6 +1031,7 @@ func _hud_state(dt_real: float) -> Dictionary:
 		"time_scale": time_scale(), "n_seg": n_seg,
 		"scenario": SCENARIOS[scenario]["name"],
 		"camera": cam.mode_name(), "dt_real": dt_real,
+		"manta_type": current_manta_type,
 	}
 
 
@@ -897,7 +1046,7 @@ func _build() -> void:
 	add_child(KytoonWorld.sea())
 	add_child(KytoonWorld.ship())
 
-	kite = KytoonWorld.kite("mkv", KytoonWorld.MK_COLOR["V"])
+	kite = KytoonWorld.kite("mkv", KytoonWorld.MK_COLOR.get(current_manta_type, KytoonWorld.MK_COLOR["B"]))
 	if kite == null:
 		kite = Node3D.new()
 	var holder := Node3D.new()

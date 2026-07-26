@@ -1,0 +1,11 @@
+; Engine: Godot 4.7
+; File: manta_type_loader.tscn
+
+[gd_scene load_steps=2 format=3 uid="uid://manta_type_loader"]
+
+[ext_resource type="Script" path="res://common/manta_type_loader.gd" id="1"]
+
+[node name="MantaTypeLoader" type="Node"]
+script = ExtResource( 1 )
+config_path = "res://data/manta_types.json"
+default_type = "Type B"
