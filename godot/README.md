@@ -14,6 +14,35 @@ sandbox/             the original claude.ai experiment that started this branch
 renders/, frames/    capture output (gitignored, carry a .gdignore)
 ```
 
+## Manta Types (A-Z)
+
+The project now supports multiple Manta variants (Type A-E) that can be
+switched between at runtime. Each type has different characteristics:
+
+| Type | Name | Focus | Payload | Tether | Wind Range |
+|------|------|-------|---------|--------|------------|
+| A | Scout | Lightweight, agile | 20 kg | 300 m | 0-22.7 m/s |
+| B | Standard | Balanced (original Mk V) | 60 kg | 400 m | 0-23.1 m/s |
+| C | Heavy Lift | High payload | 200 kg | 500 m | 0-25.0 m/s |
+| D | Long Range | Extended endurance | 80 kg | 800 m | 0-21.8 m/s |
+| E | High Altitude | Stratospheric | 40 kg | 1000 m | 0-21.7 m/s |
+
+### Switching Between Types
+
+The Manta type can be changed at runtime using:
+- **TAB**: Cycle to next type
+- **SHIFT+TAB**: Cycle to previous type
+- **M**: Open type selection menu (if implemented in HUD)
+
+Configuration files:
+- `godot/data/manta_types.json` — UI metadata for each type (colors, descriptions)
+- `godot/data/manta_specs.json` — Full technical specifications (generated from `specs/manta/`)
+
+To regenerate specs after changing YAML files:
+```bash
+python godot/tools/export_manta_specs.py
+```
+
 ## The sim
 
 `sim/mkv_sim.gd` is a **port of `kytoon.solvers.l1_trim`** — the same

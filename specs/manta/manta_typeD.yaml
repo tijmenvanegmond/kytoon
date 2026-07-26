@@ -1,0 +1,46 @@
+# Manta Mk D - "Long Range"
+# Extended endurance variant
+name: "Manta Type D «Long Range»"
+mk: "D"
+archetype: fatwing
+notes: >
+  Long range variant. Maximum helium volume for extended endurance.
+  Larger span for better lift-to-drag ratio. Optimized for long-duration
+  missions at higher altitudes.
+fat_wing:
+  span: 40.0
+  chord: 14.0
+  taper: 0.30
+  thickness_ratio: 0.28
+  n_cells: 7
+  pressure_bar: 0.09
+  fabric_areal_density: 0.19
+  fabric_strength_n_per_m: 110000
+  dihedral_deg: 10
+fin:
+  area: 14.0
+  arm: 22.0
+  areal_density: 0.32
+canopy:
+  area: 364.0
+  span: 40.0
+  areal_density: 0.018
+  cl_op: 0.78
+  cl_max: 1.20
+  cd_op: 0.08
+  twin_skin: true
+tether:
+  length: 800
+  diameter_mm: 18
+  linear_density: 0.18
+  mbl_kn: 250
+  safety_factor: 3.0
+  elevation_deg: 52
+bridle:
+  positions: [0.12, 0.50, 0.88]
+  chord_fraction: 0.35
+  control_mbl_kn: 55
+  pod_standoff_m: 55
+payload_mass: 80
+rigging_mass: 55
+dock_capacity: 0

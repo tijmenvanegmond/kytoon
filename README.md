@@ -1,22 +1,78 @@
-# kytoon-sim
+# kytoon-sim — Manta Focused
 
-L0 analytic design layer for the kiteship kytoon iterations (Mk I–IV).
+L0 analytic design layer for Manta Type A-Z variants.
 YAML spec → pydantic model → closed-form solvers → markdown comparison report.
 
+## Quick Start
+
+```bash
+# Generate Manta comparison report
+python -m kytoon.report_manta specs/manta/ -o reports/manta.md
+
+# Run L0 analysis on a specific Manta type
+python -m kytoon.solvers.l0 specs/manta/manta_typeB.yaml
+
+# Export Manta specs for Godot
+PYTHONPATH=. python godot/tools/export_manta_specs.py
 ```
-uv venv && uv pip install -e ".[dev]"     # or: pip install -e ".[dev]"
-pytest                                     # validation gates
+
+## Project Structure
+
+### Manta Types (A-Z)
+
+The project is now focused on **Manta variants** with different mission profiles:
+
+| Type | Name | Focus | Payload | Tether | Wind Range |
+|------|------|-------|---------|--------|------------|
+| A | Scout | Lightweight, agile | 20 kg | 300 m | 0-22.7 m/s |
+| B | Standard | Balanced (original Mk V) | 60 kg | 400 m | 0-23.1 m/s |
+| C | Heavy Lift | High payload | 200 kg | 500 m | 0-25.0 m/s |
+| D | Long Range | Extended endurance | 80 kg | 800 m | 0-21.8 m/s |
+| E | High Altitude | Stratospheric | 40 kg | 1000 m | 0-21.7 m/s |
+
+- `specs/manta/*.yaml` — Manta Type A-Z specification files
+- `reports/manta.md` — Generated comparison report
+- `kytoon/report_manta.py` — Manta-focused report generator
+
+### Legacy Designs
+
+Previous Kytoon designs (Mk I-IV) are retained in `specs/` for reference:
+- `specs/mk1_sled.yaml` — Mk I Sled
+- `specs/mk2_helikite.yaml` — Mk II Helikite
+- `specs/mk3_spine.yaml` — Mk III Spine
+- `specs/mk4_torus.yaml` — Mk IV Torus
+- `specs/mk5_manta.yaml` — Original Mk V (now Type B)
+- `specs/alternates/` — Alternate designs
+
+Run the legacy report with:
+```bash
 python -m kytoon.report specs/ -o reports/l0.md
 ```
 
+## Godot Integration
+
+The Godot project (`godot/`) supports switching between Manta types at runtime:
+
+- **TAB** / **SHIFT+TAB** — Cycle through types
+- **M** — Open type selection menu
+
+Configuration files:
+- `godot/data/manta_types.json` — UI metadata (colors, descriptions)
+- `godot/data/manta_specs.json` — Technical specifications (auto-generated)
+- `godot/common/manta_type_loader.gd` — Type switching logic
+
+See `godot/README.md` for full Godot documentation.
+
 ## Layout
-- `specs/*.yaml` — one KytoonSpec per Mk (geometry, pressures, tether, bridle, masses)
+- `specs/*.yaml` — KytoonSpec per design (geometry, pressures, tether, bridle, masses)
+- `specs/manta/*.yaml` — Manta Type A-Z variants
 - `kytoon/spec.py` — pydantic schema; volumes/masses as derived properties
 - `kytoon/solvers/l0.py` — buoyancy (Archimedes), tube stress (hoop N=p·r,
   wrinkle onset M_w=p·π·r³/2 per Comer & Levy), wind envelope (v_min from
   static-lift deficit; v_max = min(tether WLL, wrinkle margin via bisection,
   canopy fabric limit))
-- `kytoon/report.py` — comparison table + per-member margins + flags
+- `kytoon/report.py` — comparison table + per-member margins + flags (all designs)
+- `kytoon/report_manta.py` — Manta-focused comparison report
 - `kytoon/viz.py` — figures: fleet envelopes, structure margins, L1 polars
   vs benchmark, tether profiles → `reports/figures/`
 - `kytoon/geometry.py` — 3D kernel: spec → trimesh scene → `models/*.glb|stl`
@@ -37,7 +93,7 @@ python -m kytoon.report specs/ -o reports/l0.md
   section polars). Validated against the vendored V3 wind tunnel data:
   CL_max +10%, (L/D)max −19% (conservative), gated in `tests/test_l1_aero.py`
   (skipped unless the `l1` extra is installed: `pip install -e ".[l1]"`).
-  Run one spec: `python -m kytoon.solvers.l1_aero specs/mk1_sled.yaml`.
+  Run one spec: `python -m kytoon.solvers.l1_aero specs/manta/manta_typeB.yaml`.
 - L1 tether — **built**: `kytoon/solvers/l1_tether.py` runs the tether as an
   inverted mooring line in air (MoorPy): line drag + sag, true elevation
   angles, drag-corrected tether v_max. `tests/test_l1_tether.py`.

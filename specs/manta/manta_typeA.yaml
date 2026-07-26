@@ -1,0 +1,47 @@
+# Manta Mk A - "Scout"
+# Lightweight reconnaissance variant
+# Small, agile, low payload for quick deployment
+name: "Manta Type A «Scout»"
+mk: "A"
+archetype: fatwing
+notes: >
+  Lightweight scout variant. Smaller span and chord for rapid deployment
+  and maneuverability. Optimized for low-altitude surveillance with minimal
+  payload. Calm-air capable with excellent wind envelope.
+fat_wing:
+  span: 20.0
+  chord: 8.5
+  taper: 0.40
+  thickness_ratio: 0.28
+  n_cells: 4
+  pressure_bar: 0.10
+  fabric_areal_density: 0.18
+  fabric_strength_n_per_m: 100000
+  dihedral_deg: 12
+fin:
+  area: 8.0
+  arm: 12.0
+  areal_density: 0.30
+canopy:
+  area: 120.0
+  span: 20.0
+  areal_density: 0.02
+  cl_op: 0.75
+  cl_max: 1.15
+  cd_op: 0.09
+  twin_skin: true
+tether:
+  length: 300
+  diameter_mm: 12
+  linear_density: 0.09
+  mbl_kn: 100
+  safety_factor: 3.5
+  elevation_deg: 50
+bridle:
+  positions: [0.15, 0.50, 0.85]
+  chord_fraction: 0.35
+  control_mbl_kn: 30
+  pod_standoff_m: 30
+payload_mass: 20
+rigging_mass: 30
+dock_capacity: 0

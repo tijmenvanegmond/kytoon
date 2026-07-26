@@ -1,0 +1,46 @@
+# Manta Mk E - "High Altitude"
+# Stratospheric variant
+name: "Manta Type E «High Altitude»"
+mk: "E"
+archetype: fatwing
+notes: >
+  High altitude variant. Optimized for operation at 15,000+ ft where
+  air density is lower. Larger volume relative to wing area, specialized
+  fabric for UV resistance and temperature extremes.
+fat_wing:
+  span: 34.0
+  chord: 14.5
+  taper: 0.34
+  thickness_ratio: 0.29
+  n_cells: 5
+  pressure_bar: 0.11
+  fabric_areal_density: 0.24
+  fabric_strength_n_per_m: 130000
+  dihedral_deg: 11
+fin:
+  area: 13.0
+  arm: 19.0
+  areal_density: 0.38
+canopy:
+  area: 330.3
+  span: 34.0
+  areal_density: 0.022
+  cl_op: 0.65
+  cl_max: 1.05
+  cd_op: 0.10
+  twin_skin: true
+tether:
+  length: 1000
+  diameter_mm: 16
+  linear_density: 0.14
+  mbl_kn: 220
+  safety_factor: 3.5
+  elevation_deg: 55
+bridle:
+  positions: [0.12, 0.50, 0.88]
+  chord_fraction: 0.35
+  control_mbl_kn: 50
+  pod_standoff_m: 50
+payload_mass: 40
+rigging_mass: 45
+dock_capacity: 0

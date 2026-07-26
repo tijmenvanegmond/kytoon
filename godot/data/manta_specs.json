@@ -1,0 +1,475 @@
+{
+  "manta_specs": {
+    "A": {
+      "name": "Manta Type A \u00abScout\u00bb",
+      "mk": "A",
+      "archetype": "fatwing",
+      "notes": "Lightweight scout variant. Smaller span and chord for rapid deployment and maneuverability. Optimized for low-altitude surveillance with minimal payload. Calm-air capable with excellent wind envelope.\n",
+      "wing_area": 120.0,
+      "helium_volume": 143.27695200000002,
+      "total_mass": 111.17839999999998,
+      "structure_mass": 91.17839999999998,
+      "payload_mass": 20.0,
+      "rigging_mass": 30.0,
+      "dock_capacity": 0.0,
+      "fat_wing": {
+        "span": 20.0,
+        "chord": 8.5,
+        "taper": 0.4,
+        "thickness_ratio": 0.28,
+        "n_cells": 4,
+        "pressure_bar": 0.1,
+        "fabric_areal_density": 0.18,
+        "fabric_strength_n_per_m": 100000.0,
+        "dihedral_deg": 12.0,
+        "volume": 143.27695200000002,
+        "mass": 53.978399999999986,
+        "planform_area": 118.99999999999999
+      },
+      "canopy": {
+        "area": 120.0,
+        "span": 20.0,
+        "areal_density": 0.02,
+        "cl_op": 0.75,
+        "cl_max": 1.15,
+        "cd_op": 0.09,
+        "twin_skin": true,
+        "mass": 4.8,
+        "aspect_ratio": 3.3333333333333335
+      },
+      "fin": {
+        "area": 8.0,
+        "arm": 12.0,
+        "areal_density": 0.3,
+        "mass": 2.4
+      },
+      "tether": {
+        "length": 300.0,
+        "diameter_mm": 12.0,
+        "linear_density": 0.09,
+        "mbl_kn": 100.0,
+        "safety_factor": 3.5,
+        "elevation_deg": 50.0,
+        "mass": 27.0
+      },
+      "bridle": {
+        "positions": [
+          0.15,
+          0.5,
+          0.85
+        ],
+        "chord_fraction": 0.35,
+        "control_mbl_kn": 30.0,
+        "pod_standoff_m": 30.0
+      },
+      "l0": {
+        "buoyancy": {
+          "gross_static_lift_kg": 149.92500257280003,
+          "net_static_lift_kg": 38.74660257280004,
+          "net_incl_tether_kg": 11.746602572800043,
+          "calm_air_capable": true,
+          "structure_mass_kg": 91.17839999999998,
+          "payload_mass_kg": 20.0,
+          "tether_mass_kg": 27.0
+        },
+        "envelope": {
+          "v_min_ms": 0.0,
+          "v_max_ms": 22.68503044471486,
+          "v_max_limiter": "tether WLL",
+          "tow_force_at_12ms_kn": 7.994949315261479,
+          "vertical_capacity_at_10ms_kg": 442.2073561602992
+        },
+        "structure": [
+          {
+            "label": "fat-wing box (equiv \u00d82.4 m)",
+            "hoop_stress_n_per_m": 10625.0,
+            "hoop_utilization": 0.10625,
+            "wrinkle_moment_nm": 26470.415672653624,
+            "collapse_moment_nm": 52940.83134530725,
+            "applied_moment_nm": 2448.4532277988283,
+            "bending_utilization": 0.09249772493479601
+          }
+        ]
+      }
+    },
+    "B": {
+      "name": "Manta Type B \u00abStandard\u00bb",
+      "mk": "B",
+      "archetype": "fatwing",
+      "notes": "Baseline Manta variant. Original Mk V design renamed to fit the A-Z series. Balanced performance across all mission profiles. The reference design.\n",
+      "wing_area": 288.0,
+      "helium_volume": 529.7762102080001,
+      "total_mass": 270.50912,
+      "structure_mass": 210.50912,
+      "payload_mass": 60.0,
+      "rigging_mass": 50.0,
+      "dock_capacity": 0.0,
+      "fat_wing": {
+        "span": 32.0,
+        "chord": 13.3,
+        "taper": 0.35,
+        "thickness_ratio": 0.28,
+        "n_cells": 5,
+        "pressure_bar": 0.1,
+        "fabric_areal_density": 0.2,
+        "fabric_strength_n_per_m": 120000.0,
+        "dihedral_deg": 10.0,
+        "volume": 529.7762102080001,
+        "mass": 144.78912000000003,
+        "planform_area": 287.28000000000003
+      },
+      "canopy": {
+        "area": 288.0,
+        "span": 32.0,
+        "areal_density": 0.02,
+        "cl_op": 0.7,
+        "cl_max": 1.1,
+        "cd_op": 0.1,
+        "twin_skin": true,
+        "mass": 11.52,
+        "aspect_ratio": 3.5555555555555554
+      },
+      "fin": {
+        "area": 12.0,
+        "arm": 18.0,
+        "areal_density": 0.35,
+        "mass": 4.199999999999999
+      },
+      "tether": {
+        "length": 400.0,
+        "diameter_mm": 16.0,
+        "linear_density": 0.14,
+        "mbl_kn": 200.0,
+        "safety_factor": 3.0,
+        "elevation_deg": 50.0,
+        "mass": 56.00000000000001
+      },
+      "bridle": {
+        "positions": [
+          0.12,
+          0.5,
+          0.88
+        ],
+        "chord_fraction": 0.35,
+        "control_mbl_kn": 50.0,
+        "pod_standoff_m": 50.0
+      },
+      "l0": {
+        "buoyancy": {
+          "gross_static_lift_kg": 554.3578263616513,
+          "net_static_lift_kg": 283.8487063616513,
+          "net_incl_tether_kg": 227.8487063616513,
+          "calm_air_capable": true,
+          "structure_mass_kg": 210.50912,
+          "payload_mass_kg": 60.0,
+          "tether_mass_kg": 56.00000000000001
+        },
+        "envelope": {
+          "v_min_ms": 0.0,
+          "v_max_ms": 23.11865579558683,
+          "v_max_limiter": "tether WLL",
+          "tow_force_at_12ms_kn": 17.961643612988205,
+          "vertical_capacity_at_10ms_kg": 1192.0807943976495
+        },
+        "structure": [
+          {
+            "label": "fat-wing box (equiv \u00d83.7 m)",
+            "hoop_stress_n_per_m": 13300.0,
+            "hoop_utilization": 0.11083333333333334,
+            "wrinkle_moment_nm": 101404.89202827569,
+            "collapse_moment_nm": 202809.78405655138,
+            "applied_moment_nm": 10374.645350861987,
+            "bending_utilization": 0.10230912082593734
+          }
+        ]
+      }
+    },
+    "C": {
+      "name": "Manta Type C \u00abHeavy Lift\u00bb",
+      "mk": "C",
+      "archetype": "fatwing",
+      "notes": "Heavy lift variant. Larger wing area and volume for increased payload capacity. Thicker sections for higher bending resistance. Optimized for carrying heavy sensors or multiple payloads.\n",
+      "wing_area": 360.0,
+      "helium_volume": 784.610064,
+      "total_mass": 501.98816,
+      "structure_mass": 301.98816,
+      "payload_mass": 200.0,
+      "rigging_mass": 80.0,
+      "dock_capacity": 0.0,
+      "fat_wing": {
+        "span": 36.0,
+        "chord": 15.0,
+        "taper": 0.32,
+        "thickness_ratio": 0.3,
+        "n_cells": 6,
+        "pressure_bar": 0.12,
+        "fabric_areal_density": 0.22,
+        "fabric_strength_n_per_m": 140000.0,
+        "dihedral_deg": 8.0,
+        "volume": 784.610064,
+        "mass": 197.58816,
+        "planform_area": 356.40000000000003
+      },
+      "canopy": {
+        "area": 360.0,
+        "span": 36.0,
+        "areal_density": 0.025,
+        "cl_op": 0.72,
+        "cl_max": 1.12,
+        "cd_op": 0.11,
+        "twin_skin": true,
+        "mass": 18.0,
+        "aspect_ratio": 3.6
+      },
+      "fin": {
+        "area": 16.0,
+        "arm": 20.0,
+        "areal_density": 0.4,
+        "mass": 6.4
+      },
+      "tether": {
+        "length": 500.0,
+        "diameter_mm": 20.0,
+        "linear_density": 0.22,
+        "mbl_kn": 300.0,
+        "safety_factor": 3.0,
+        "elevation_deg": 48.0,
+        "mass": 110.0
+      },
+      "bridle": {
+        "positions": [
+          0.1,
+          0.5,
+          0.9
+        ],
+        "chord_fraction": 0.35,
+        "control_mbl_kn": 70.0,
+        "pod_standoff_m": 60.0
+      },
+      "l0": {
+        "buoyancy": {
+          "gross_static_lift_kg": 821.0159709696,
+          "net_static_lift_kg": 319.02781096959995,
+          "net_incl_tether_kg": 209.02781096959995,
+          "calm_air_capable": true,
+          "structure_mass_kg": 301.98816,
+          "payload_mass_kg": 200.0,
+          "tether_mass_kg": 110.0
+        },
+        "envelope": {
+          "v_min_ms": 0.0,
+          "v_max_ms": 24.953091323743067,
+          "v_max_limiter": "tether WLL",
+          "tow_force_at_12ms_kn": 23.126706031599053,
+          "vertical_capacity_at_10ms_kg": 1411.6952166045758
+        },
+        "structure": [
+          {
+            "label": "fat-wing box (equiv \u00d84.5 m)",
+            "hoop_stress_n_per_m": 15000.0,
+            "hoop_utilization": 0.10714285714285714,
+            "wrinkle_moment_nm": 214708.2229187774,
+            "collapse_moment_nm": 429416.4458375548,
+            "applied_moment_nm": 16651.22834275132,
+            "bending_utilization": 0.07755282083001713
+          }
+        ]
+      }
+    },
+    "D": {
+      "name": "Manta Type D \u00abLong Range\u00bb",
+      "mk": "D",
+      "archetype": "fatwing",
+      "notes": "Long range variant. Maximum helium volume for extended endurance. Larger span for better lift-to-drag ratio. Optimized for long-duration missions at higher altitudes.\n",
+      "wing_area": 364.0,
+      "helium_volume": 692.6514560000002,
+      "total_mass": 326.8672,
+      "structure_mass": 246.8672,
+      "payload_mass": 80.0,
+      "rigging_mass": 55.0,
+      "dock_capacity": 0.0,
+      "fat_wing": {
+        "span": 40.0,
+        "chord": 14.0,
+        "taper": 0.3,
+        "thickness_ratio": 0.28,
+        "n_cells": 7,
+        "pressure_bar": 0.09,
+        "fabric_areal_density": 0.19,
+        "fabric_strength_n_per_m": 110000.0,
+        "dihedral_deg": 10.0,
+        "volume": 692.6514560000002,
+        "mass": 174.2832,
+        "planform_area": 364.0
+      },
+      "canopy": {
+        "area": 364.0,
+        "span": 40.0,
+        "areal_density": 0.018,
+        "cl_op": 0.78,
+        "cl_max": 1.2,
+        "cd_op": 0.08,
+        "twin_skin": true,
+        "mass": 13.104,
+        "aspect_ratio": 4.395604395604396
+      },
+      "fin": {
+        "area": 14.0,
+        "arm": 22.0,
+        "areal_density": 0.32,
+        "mass": 4.48
+      },
+      "tether": {
+        "length": 800.0,
+        "diameter_mm": 18.0,
+        "linear_density": 0.18,
+        "mbl_kn": 250.0,
+        "safety_factor": 3.0,
+        "elevation_deg": 52.0,
+        "mass": 144.0
+      },
+      "bridle": {
+        "positions": [
+          0.12,
+          0.5,
+          0.88
+        ],
+        "chord_fraction": 0.35,
+        "control_mbl_kn": 55.0,
+        "pod_standoff_m": 55.0
+      },
+      "l0": {
+        "buoyancy": {
+          "gross_static_lift_kg": 724.7904835584002,
+          "net_static_lift_kg": 397.92328355840016,
+          "net_incl_tether_kg": 253.92328355840016,
+          "calm_air_capable": true,
+          "structure_mass_kg": 246.8672,
+          "payload_mass_kg": 80.0,
+          "tether_mass_kg": 144.0
+        },
+        "envelope": {
+          "v_min_ms": 0.0,
+          "v_max_ms": 21.833440347664176,
+          "v_max_limiter": "tether WLL",
+          "tow_force_at_12ms_kn": 25.173111427334366,
+          "vertical_capacity_at_10ms_kg": 1650.822958002463
+        },
+        "structure": [
+          {
+            "label": "fat-wing box (equiv \u00d83.9 m)",
+            "hoop_stress_n_per_m": 9000.0,
+            "hoop_utilization": 0.08181818181818182,
+            "wrinkle_moment_nm": 106446.30742142948,
+            "collapse_moment_nm": 212892.61484285895,
+            "applied_moment_nm": 18174.986450535413,
+            "bending_utilization": 0.1707432309378209
+          }
+        ]
+      }
+    },
+    "E": {
+      "name": "Manta Type E \u00abHigh Altitude\u00bb",
+      "mk": "E",
+      "archetype": "fatwing",
+      "notes": "High altitude variant. Optimized for operation at 15,000+ ft where air density is lower. Larger volume relative to wing area, specialized fabric for UV resistance and temperature extremes.\n",
+      "wing_area": 330.3,
+      "helium_volume": 684.984624978,
+      "total_mass": 304.24468800000005,
+      "structure_mass": 264.24468800000005,
+      "payload_mass": 40.0,
+      "rigging_mass": 45.0,
+      "dock_capacity": 0.0,
+      "fat_wing": {
+        "span": 34.0,
+        "chord": 14.5,
+        "taper": 0.34,
+        "thickness_ratio": 0.29,
+        "n_cells": 5,
+        "pressure_bar": 0.11,
+        "fabric_areal_density": 0.24,
+        "fabric_strength_n_per_m": 130000.0,
+        "dihedral_deg": 11.0,
+        "volume": 684.984624978,
+        "mass": 199.77148800000006,
+        "planform_area": 330.31
+      },
+      "canopy": {
+        "area": 330.3,
+        "span": 34.0,
+        "areal_density": 0.022,
+        "cl_op": 0.65,
+        "cl_max": 1.05,
+        "cd_op": 0.1,
+        "twin_skin": true,
+        "mass": 14.533199999999999,
+        "aspect_ratio": 3.4998486224644263
+      },
+      "fin": {
+        "area": 13.0,
+        "arm": 19.0,
+        "areal_density": 0.38,
+        "mass": 4.94
+      },
+      "tether": {
+        "length": 1000.0,
+        "diameter_mm": 16.0,
+        "linear_density": 0.14,
+        "mbl_kn": 220.0,
+        "safety_factor": 3.5,
+        "elevation_deg": 55.0,
+        "mass": 140.0
+      },
+      "bridle": {
+        "positions": [
+          0.12,
+          0.5,
+          0.88
+        ],
+        "chord_fraction": 0.35,
+        "control_mbl_kn": 50.0,
+        "pod_standoff_m": 50.0
+      },
+      "l0": {
+        "buoyancy": {
+          "gross_static_lift_kg": 716.7679115769793,
+          "net_static_lift_kg": 412.5232235769792,
+          "net_incl_tether_kg": 272.5232235769792,
+          "calm_air_capable": true,
+          "structure_mass_kg": 264.24468800000005,
+          "payload_mass_kg": 40.0,
+          "tether_mass_kg": 140.0
+        },
+        "envelope": {
+          "v_min_ms": 0.0,
+          "v_max_ms": 21.73569127559736,
+          "v_max_limiter": "tether WLL",
+          "tow_force_at_12ms_kn": 19.158884299309214,
+          "vertical_capacity_at_10ms_kg": 1370.5768116609026
+        },
+        "structure": [
+          {
+            "label": "fat-wing box (equiv \u00d84.2 m)",
+            "hoop_stress_n_per_m": 15950.0,
+            "hoop_utilization": 0.1226923076923077,
+            "wrinkle_moment_nm": 160590.76820165874,
+            "collapse_moment_nm": 321181.53640331747,
+            "applied_moment_nm": 11757.807294486067,
+            "bending_utilization": 0.07321596020838153
+          }
+        ]
+      }
+    }
+  },
+  "metadata": {
+    "count": 5,
+    "types": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ],
+    "generated_by": "export_manta_specs.py"
+  }
+}

@@ -1,0 +1,45 @@
+# Manta Mk B - "Standard"
+# The baseline Manta - balanced performance
+name: "Manta Type B «Standard»"
+mk: "B"
+archetype: fatwing
+notes: >
+  Baseline Manta variant. Original Mk V design renamed to fit the A-Z series.
+  Balanced performance across all mission profiles. The reference design.
+fat_wing:
+  span: 32.0
+  chord: 13.3
+  taper: 0.35
+  thickness_ratio: 0.28
+  n_cells: 5
+  pressure_bar: 0.10
+  fabric_areal_density: 0.20
+  fabric_strength_n_per_m: 120000
+  dihedral_deg: 10
+fin:
+  area: 12.0
+  arm: 18.0
+  areal_density: 0.35
+canopy:
+  area: 288.0
+  span: 32.0
+  areal_density: 0.02
+  cl_op: 0.7
+  cl_max: 1.1
+  cd_op: 0.10
+  twin_skin: true
+tether:
+  length: 400
+  diameter_mm: 16
+  linear_density: 0.14
+  mbl_kn: 200
+  safety_factor: 3.0
+  elevation_deg: 50
+bridle:
+  positions: [0.12, 0.50, 0.88]
+  chord_fraction: 0.35
+  control_mbl_kn: 50
+  pod_standoff_m: 50
+payload_mass: 60
+rigging_mass: 50
+dock_capacity: 0

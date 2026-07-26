@@ -1,0 +1,60 @@
+{
+  "manta_types": {
+    "Type A": {
+      "spec_file": "specs/manta/manta_typeA.yaml",
+      "display_name": "Manta Type A «Scout»",
+      "description": "Lightweight reconnaissance variant. Small, agile, low payload.",
+      "color": "#4CAF50",
+      "default_payload": 20,
+      "max_payload": 50,
+      "tether_length": 300,
+      "recommended_wind": [5, 20]
+    },
+    "Type B": {
+      "spec_file": "specs/manta/manta_typeB.yaml",
+      "display_name": "Manta Type B «Standard»",
+      "description": "Baseline Manta variant. Balanced performance across all mission profiles.",
+      "color": "#2196F3",
+      "default_payload": 60,
+      "max_payload": 150,
+      "tether_length": 400,
+      "recommended_wind": [5, 25]
+    },
+    "Type C": {
+      "spec_file": "specs/manta/manta_typeC.yaml",
+      "display_name": "Manta Type C «Heavy Lift»",
+      "description": "High payload capacity variant. Larger wing area and volume.",
+      "color": "#FF9800",
+      "default_payload": 200,
+      "max_payload": 300,
+      "tether_length": 500,
+      "recommended_wind": [8, 25]
+    },
+    "Type D": {
+      "spec_file": "specs/manta/manta_typeD.yaml",
+      "display_name": "Manta Type D «Long Range»",
+      "description": "Extended endurance variant. Maximum helium volume for long-duration missions.",
+      "color": "#9C27B0",
+      "default_payload": 80,
+      "max_payload": 120,
+      "tether_length": 800,
+      "recommended_wind": [5, 22]
+    },
+    "Type E": {
+      "spec_file": "specs/manta/manta_typeE.yaml",
+      "display_name": "Manta Type E «High Altitude»",
+      "description": "Stratospheric variant. Optimized for high altitude operation.",
+      "color": "#FFEB3B",
+      "default_payload": 40,
+      "max_payload": 80,
+      "tether_length": 1000,
+      "recommended_wind": [5, 22]
+    }
+  },
+  "default_type": "Type B",
+  "switch_controls": {
+    "next": "TAB",
+    "previous": "SHIFT+TAB",
+    "select_menu": "M"
+  }
+}

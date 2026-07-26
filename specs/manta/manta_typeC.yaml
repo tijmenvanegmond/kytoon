@@ -1,0 +1,46 @@
+# Manta Mk C - "Heavy Lift"
+# High payload capacity variant
+name: "Manta Type C «Heavy Lift»"
+mk: "C"
+archetype: fatwing
+notes: >
+  Heavy lift variant. Larger wing area and volume for increased payload
+  capacity. Thicker sections for higher bending resistance. Optimized for
+  carrying heavy sensors or multiple payloads.
+fat_wing:
+  span: 36.0
+  chord: 15.0
+  taper: 0.32
+  thickness_ratio: 0.30
+  n_cells: 6
+  pressure_bar: 0.12
+  fabric_areal_density: 0.22
+  fabric_strength_n_per_m: 140000
+  dihedral_deg: 8
+fin:
+  area: 16.0
+  arm: 20.0
+  areal_density: 0.40
+canopy:
+  area: 360.0
+  span: 36.0
+  areal_density: 0.025
+  cl_op: 0.72
+  cl_max: 1.12
+  cd_op: 0.11
+  twin_skin: true
+tether:
+  length: 500
+  diameter_mm: 20
+  linear_density: 0.22
+  mbl_kn: 300
+  safety_factor: 3.0
+  elevation_deg: 48
+bridle:
+  positions: [0.10, 0.50, 0.90]
+  chord_fraction: 0.35
+  control_mbl_kn: 70
+  pod_standoff_m: 60
+payload_mass: 200
+rigging_mass: 80
+dock_capacity: 0
