@@ -75,14 +75,21 @@ def test_yaw_damping_is_negative(specs):
 # --- static derivatives ---------------------------------------------------
 
 @needs_l1
-def test_tailless_wing_is_weathercock_unstable(rep):
-    """FINDING, not a bug: a swept tailless wing with no fin has
+def test_tailless_wing_is_weathercock_unstable(specs):
+    """FINDING, not a bug: the BARE swept planform — flat, no fin — has
     Cn_β < 0. It is weak (|Cn_β| ~ 0.005 vs ~0.1 for a finned aircraft),
-    so yaw restoring has to come from the bridle geometry — which is
-    exactly what Stage 3's 3D force closure has to demonstrate.
-    """
-    assert rep.cn_beta < 0.0
-    assert abs(rep.cn_beta) < 0.05
+    but negative, and it is the reason the spec now carries a fin."""
+    bare = solve(specs["V"], dihedral_deg=0.0, fin_area_m2=0.0)
+    assert bare.cn_beta < 0.0
+    assert abs(bare.cn_beta) < 0.05
+
+
+@needs_l1
+def test_spec_configuration_is_weathercock_stable(rep):
+    """...and with the spec's Γ = 10° + 12 m² fin, it is cured: the fin
+    has to beat both the bare planform AND the extra yaw divergence the
+    dihedral brings."""
+    assert rep.cn_beta > 0.0
 
 
 @needs_l1

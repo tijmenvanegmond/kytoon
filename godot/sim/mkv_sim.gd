@@ -185,8 +185,10 @@ func _apply_payload(kg: float) -> void:
 	P["i_yy"] = float(P["i_skin_own"]) \
 		+ m_skin * r_skin.distance_squared_to(r_cg) \
 		+ m_pod * p_main.distance_squared_to(r_cg)
+	# ia_c, not m_added_z: the latter carries the cos²Γ fold projection
+	# and i_added does not (see export_sim_params.py)
 	P["i_added"] = float(P["ia_a"]) - 2.0 * float(P["ia_b"]) * r_cg.x \
-		+ float(P["m_added_z"]) * r_cg.x * r_cg.x + float(P["ia_d"])
+		+ float(P["ia_c"]) * r_cg.x * r_cg.x + float(P["ia_d"])
 
 
 ## Net static lift of the whole system [kg] — payload counts wherever it

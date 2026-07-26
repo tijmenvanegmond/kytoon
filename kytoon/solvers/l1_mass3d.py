@@ -138,11 +138,24 @@ def attach_point_3d(spec: KytoonSpec, span_pos: float,
     return np.array([x_le + f * c, y_f, z_f])
 
 
-def mass_props_3d(spec: KytoonSpec, dihedral_deg: float = 0.0,
-                  fold_eta: float = 0.0,
+def spec_fold(spec: KytoonSpec, dihedral_deg: float | None,
+              fold_eta: float | None) -> tuple[float, float]:
+    """Resolve the panel fold: explicit argument wins, otherwise the
+    spec's. Callers that want the flat reference loft must pass 0.0
+    explicitly — the spec is the design, not the baseline."""
+    fw = spec.fat_wing
+    return ((fw.dihedral_deg if dihedral_deg is None else dihedral_deg),
+            (fw.fold_eta if fold_eta is None else fold_eta))
+
+
+def mass_props_3d(spec: KytoonSpec, dihedral_deg: float | None = None,
+                  fold_eta: float | None = None,
                   payload_kg: float | None = None) -> MassProps3D:
+    """Γ defaults to the SPEC (so this agrees with l1_trim.mass_props);
+    pass 0.0 explicitly for the flat reference loft."""
     _require()
     _check(spec)
+    dihedral_deg, fold_eta = spec_fold(spec, dihedral_deg, fold_eta)
     fw = spec.fat_wing
     gamma = math.radians(dihedral_deg)
     y_break = fold_eta * fw.span / 2

@@ -22,6 +22,15 @@ fat_wing:
   pressure_bar: 0.10
   fabric_areal_density: 0.20        # reinforced laminate w/ load tapes
   fabric_strength_n_per_m: 120000
+  dihedral_deg: 10     # LATERAL fix (2026-07-25). Kills the destabilising
+                       # CY_beta (+0.126 -> +0.02, i.e. ~zero, which is also
+                       # where the least-trusted derivative stops mattering)
+                       # and lifts the CB 0.96 m, improving the capture hang
+                       # from -41 to -31 deg. More Gamma costs yaw margin.
+fin:
+  area: 12.0           # smallest fin that closes the lateral loop at G=10
+  arm: 18.0            # root LE aft of the body origin
+  areal_density: 0.35
 canopy:                # aero coefficients live here; skin mass is the
   area: 288.0          # fat wing's (validator checks planform agreement)
   span: 32.0

@@ -87,14 +87,26 @@ def test_both_families_of_mode_are_present(rep):
 # --- the added-inertia probe ----------------------------------------------
 
 @needs_l1
-def test_roll_mode_matches_the_closed_form(rep):
+def test_roll_mode_matches_the_closed_form(specs, rep):
     """√(k_roll / (I_roll + A_roll)) computed two ways: by hand from the
     stiffness and Stage 1's inertia, and from the eigen-decomposition of
-    the full 12-state system."""
+    the full 12-state system.
+
+    Tight on the flat loft, where roll is a clean single-DOF mode. The
+    spec's Γ = 10° couples roll into sway and yaw, so the 1-DOF closed
+    form is a worse idealisation there — 8 %, which is still nowhere
+    near the 3.6× error that dropping added inertia would cause.
+    """
+    flat = solve(specs["V"], dihedral_deg=0.0, fin_area_m2=0.0)
+    roll_flat = flat.of_kind("roll")
+    assert roll_flat is not None
+    assert abs(roll_flat.eig.imag) == pytest.approx(
+        flat.roll_freq_closed_form, rel=0.05)
+
     roll = rep.of_kind("roll")
     assert roll is not None
     assert abs(roll.eig.imag) == pytest.approx(
-        rep.roll_freq_closed_form, rel=0.05)
+        rep.roll_freq_closed_form, rel=0.12)
 
 
 @needs_l1
@@ -120,48 +132,59 @@ def test_longitudinal_dynamics_stay_stable(rep):
 
 
 @needs_l1
-def test_lateral_divergence_is_a_gated_finding(rep):
-    """FINDING, not an assertion of health. The 3D model says Mk V's
-    LATERAL dynamics diverge — something the longitudinal programme
-    could not have seen. Gated so that a change (a fin in the spec, a
-    revised CY_β) shows up as a test failure demanding a re-read rather
-    than passing silently.
+def test_bare_reference_diverges_laterally(specs):
+    """The FINDING that drove the design change, kept as a regression on
+    the bare configuration: flat loft, no fin — what Mk V was before
+    2026-07-25 — diverges laterally at ~+1.5 /s. Something the
+    longitudinal programme could not have seen at all.
 
-    Sensitivity: it survives dropping control-line stiffness 100×,
-    moving the control attachments chordwise, and changing pod standoff.
-    A 20 m² fin cuts it from +1.49 to +0.38 /s but does not cure it.
+    It survives dropping control-line stiffness 100×, moving the control
+    attachments chordwise, and changing pod standoff; a fin alone at
+    Γ = 0 only gets it to +0.38 /s.
     """
-    assert rep.max_real_lateral > 0.0
-    assert any("LATERAL DIVERGENCE" in f for f in rep.flags)
+    bare = solve(specs["V"], dihedral_deg=0.0, fin_area_m2=0.0)
+    assert bare.max_real_lateral > 1.0
+    assert any("LATERAL DIVERGENCE" in f for f in bare.flags)
 
 
 @needs_l1
-def test_sway_damping_is_negative(rep):
-    """The dominant driver, isolated: CY_β > 0 means a side force in the
-    same direction as the slip, so the air feeds the sway instead of
-    damping it. C[1,1] > 0 is the signature, and C[1,1]/m alone accounts
-    for the ~0.8 /s floor the sensitivity sweep bottoms out at."""
-    assert rep.sway_damping > 0.0
-    assert rep.sway_damping / 266.0 > 0.5
-
-
-@needs_l1
-def test_dihedral_plus_fin_stabilises_the_lateral_mode(specs):
-    """The way out, gated. The two lateral problems pull opposite ways —
-    sway damping wants dihedral, yaw wants none plus a fin — and the
-    Γ × fin map has a narrow island at Γ ≈ 10° with 12-20 m² of fin.
-
-    Worth knowing why that point and not a bigger one: Γ = 10° is where
-    CY_β ≈ 0, so the configuration sits exactly where the least-trusted
-    derivative stops mattering. The margin is thin (≈ −0.04 /s), so this
-    is a candidate to investigate, not a solved design — and neither Γ
-    nor the fin is in the spec.
-    """
-    rep = solve(specs["V"], wind=12.0, dihedral_deg=10.0, fin_area_m2=12.0)
+def test_spec_configuration_is_laterally_stable(rep):
+    """...and the adopted Γ = 10° + 12 m² fin cures it. Thin margin, so
+    this is the gate that notices if anything erodes it."""
     assert rep.max_real_lateral < 0.0
-    assert rep.max_real_longitudinal < 0.0
     assert not any("LATERAL DIVERGENCE" in f for f in rep.flags)
-    assert any("NOT in the spec" in f for f in rep.flags)
+
+
+@needs_l1
+def test_dihedral_fixes_the_sway_damping(specs, rep):
+    """The dominant driver, isolated. On the bare wing CY_β > 0 means a
+    side force in the *same* direction as the slip, so the air feeds the
+    sway: C[1,1] > 0, worth ~0.8 /s on its own. Γ = 10° is chosen
+    precisely because it drives CY_β to ≈ 0 — the design point sits
+    where the least-trusted derivative stops mattering."""
+    bare = solve(specs["V"], dihedral_deg=0.0, fin_area_m2=0.0)
+    assert bare.sway_damping > 0.0
+    assert bare.sway_damping / bare.spec.total_mass > 0.5
+    assert rep.sway_damping < bare.sway_damping
+
+
+@needs_l1
+def test_the_stable_island_is_narrow(specs):
+    """Why the spec says Γ = 10° AND 12 m², not one or the other. The two
+    lateral problems pull opposite ways — sway damping wants dihedral,
+    yaw wants none plus a fin — so the stable region is an island, and
+    each neighbouring configuration must still diverge. If one of them
+    goes stable the island has moved and the spec deserves a re-read.
+    """
+    for gamma, fin in ((0.0, 12.0), (20.0, 12.0), (10.0, 0.0)):
+        off = solve(specs["V"], wind=12.0, dihedral_deg=gamma,
+                    fin_area_m2=fin)
+        assert off.max_real_lateral > 0.0, (
+            f"Γ={gamma}, fin={fin} m² should NOT be stable — if it is, "
+            "the island moved and the spec should be revisited")
+    on = solve(specs["V"], wind=12.0, dihedral_deg=10.0, fin_area_m2=12.0)
+    assert on.max_real_lateral < 0.0
+    assert on.max_real_longitudinal < 0.0
 
 
 @needs_l1

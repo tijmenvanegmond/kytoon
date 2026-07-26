@@ -45,7 +45,8 @@ al, cl, cd, cm = table
 #   i_added(x_cg) = ia_a − 2·ia_b·x_cg + m_added_z·x_cg² + ia_d
 # both exact rearrangements of l1_trim.mass_props (asserted below).
 fw = spec.fat_wing
-mesh = _lofted_fatwing(fw)
+mesh = _lofted_fatwing(fw, dihedral_deg=fw.dihedral_deg,
+                       fold_eta=fw.fold_eta)
 w_f = mesh.area_faces
 _d2 = ((mesh.triangles_center[:, [0, 2]] - props.r_skin) ** 2).sum(1)
 i_skin_own = float((props.m_skin / w_f.sum()) * (w_f * _d2).sum())
@@ -57,6 +58,11 @@ xqc = np.tan(np.radians(SWEEP_DEG)) * np.abs(ys)
 ia_a = float(np.trapezoid(m_strip * xqc**2, ys))
 ia_b = float(np.trapezoid(m_strip * xqc, ys))
 ia_d = float(np.trapezoid(m_strip * cs**2 / 32, ys))
+# UNPROJECTED strip mass. m_added_z now carries the cos²Γ normal
+# projection (a folded panel resists heave less) but i_added does not,
+# so the payload identity needs this separately — reusing m_added_z
+# here silently breaks the reconstruction as soon as Γ ≠ 0.
+ia_c = float(np.trapezoid(m_strip, ys))
 
 _p_main = attach_point(spec, spec.bridle.positions[1])
 assert abs(i_skin_own
@@ -64,7 +70,7 @@ assert abs(i_skin_own
            + props.m_pod * float(((_p_main - props.r_cg) ** 2).sum())
            - props.i_yy) < 1e-6 * props.i_yy
 assert abs(ia_a - 2 * ia_b * props.r_cg[0]
-           + props.m_added_z * props.r_cg[0] ** 2 + ia_d
+           + ia_c * props.r_cg[0] ** 2 + ia_d
            - props.i_added) < 1e-6 * props.i_added
 
 params = {
@@ -95,6 +101,7 @@ params = {
     "i_skin_own": i_skin_own,
     "ia_a": ia_a,
     "ia_b": ia_b,
+    "ia_c": ia_c,
     "ia_d": ia_d,
     "p_main": list(attach_point(spec, spec.bridle.positions[1])),
     "p_ctl": list(attach_point(spec, spec.bridle.positions[2])),

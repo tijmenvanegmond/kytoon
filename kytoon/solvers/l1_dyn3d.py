@@ -279,12 +279,18 @@ class L1Dyn3DReport:
     _c11: float = 0.0
 
 
-def solve(spec: KytoonSpec, wind: float = 12.0, dihedral_deg: float = 0.0,
-          fin_area_m2: float = 0.0) -> L1Dyn3DReport:
-    """Modes at a configuration. Γ and the fin are exploratory knobs, not
-    spec fields — see the Γ × fin map in KYTOON-PROJECT.md §6."""
+def solve(spec: KytoonSpec, wind: float = 12.0,
+          dihedral_deg: float | None = None,
+          fin_area_m2: float | None = None) -> L1Dyn3DReport:
+    """Modes at a configuration. Γ and fin default to the SPEC; pass
+    explicit values to explore the map in KYTOON-PROJECT.md §6, or 0.0
+    for the flat finless reference the divergence was found on."""
     _require()
     _check(spec)
+    if dihedral_deg is None:
+        dihedral_deg = spec.fat_wing.dihedral_deg
+    if fin_area_m2 is None:
+        fin_area_m2 = spec.fin.area if spec.fin else 0.0
     props = mass_props_3d(spec, dihedral_deg=dihedral_deg)
     table = aero_table(spec)
     lat = solve_lat(spec, dihedral_deg=dihedral_deg,
@@ -376,9 +382,12 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="L1 3D modes for one spec")
     ap.add_argument("spec", help="path to a specs/*.yaml file")
     ap.add_argument("--wind", type=float, default=12.0)
-    ap.add_argument("--dihedral", type=float, default=0.0)
-    ap.add_argument("--fin", type=float, default=0.0,
-                    help="exploratory fin area [m2], not a spec field")
+    # default None, NOT 0.0 — an explicit zero overrides the spec and
+    # silently reports the bare reference configuration
+    ap.add_argument("--dihedral", type=float, default=None,
+                    help="override the spec's Γ [deg]; 0 = flat loft")
+    ap.add_argument("--fin", type=float, default=None,
+                    help="override the spec's fin area [m2]; 0 = finless")
     args = ap.parse_args()
     print(_summary(solve(load_spec(args.spec), args.wind, args.dihedral,
                          args.fin)))

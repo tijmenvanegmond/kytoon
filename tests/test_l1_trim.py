@@ -193,19 +193,32 @@ def test_zero_q_hang_anchor(specs, rep):
     assert len(stable) == 1
     assert stable[0] == pytest.approx(expect, abs=0.5)
     assert rep.hang_theta_deg == pytest.approx(stable[0], abs=0.1)
-    assert -45 < stable[0] < -35          # current rig hangs ~41° nose-down
+    # Re-baselined 2026-07-25: adopting Γ = 10° for LATERAL stability
+    # lifts the CB 0.96 m, which lengthens the buoyancy arm about the
+    # attach and pulls the hang from −41° to −31°. A free improvement to
+    # the capture-hover levelling problem, from a change made for an
+    # unrelated reason — but still nose-down, so the pendant work stands.
+    assert -35 < stable[0] < -26
 
 
 @needs_l1
-def test_hang_matches_sim_recovery_endgame(specs):
-    """Cross-model regression: the Godot sim's recovery run ended at
-    theta ≈ -57° in 5 m/s residual wind (still converging at cutoff);
-    the static hang with the same table clamp must land nearby."""
+def test_hang_matches_sim_free_hang_before_the_pod_docks(specs):
+    """Cross-model regression against the Godot recovery run.
+
+    Re-pointed 2026-07-25. It used to compare against the run's final
+    attitude (−57°), but at the adopted Γ = 10° that is no longer a free
+    hang: the raised outboard attachments keep the control pair in
+    reach, so once the pod docks its drum auto-tends at 3 kN and pulls
+    the kite to θ ≈ +1.5° — level, which is what the capture pendant was
+    for. The comparable moment is now PRE-dock, where the control lines
+    are slack (T_ctl = 0) and the kite genuinely hangs: the sim reads
+    −29.8° there against this static −30.6°.
+    """
     s = specs["V"]
-    roots = hang_trim(s, mass_props(s), aero_table(s), 5.0)
+    roots = hang_trim(s, mass_props(s), aero_table(s), 0.0)
     stable = [t for t, ok in roots if ok]
     assert len(stable) == 1
-    assert abs(stable[0] - (-57.0)) < 4.0
+    assert abs(stable[0] - (-29.8)) < 3.0
 
 
 @needs_l1

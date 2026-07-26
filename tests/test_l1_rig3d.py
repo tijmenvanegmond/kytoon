@@ -91,7 +91,11 @@ def test_symmetric_rig_stays_in_the_plane(rep):
     assert abs(math.degrees(rep.pose[3])) < 1e-3      # roll
     assert abs(math.degrees(rep.pose[5])) < 1e-3      # yaw
     assert abs(rep.pose[1]) < 1e-3                    # y position
-    assert rep.tensions[PORT] == pytest.approx(rep.tensions[STBD], rel=1e-6)
+    # 1e-4, not 1e-6: the attach points are exact mirrors, but the trim
+    # solve stops at a ~0.3 mm lateral residual and the control springs
+    # are stiff enough to turn that into ~0.01 N. Real asymmetry from
+    # differential trim is kN-scale, so this still catches it.
+    assert rep.tensions[PORT] == pytest.approx(rep.tensions[STBD], rel=1e-4)
 
 
 @needs_l1
@@ -108,9 +112,14 @@ def test_tensions_agree_with_the_planar_solver(specs, rep):
 # --- the Stage 2 question, answered ---------------------------------------
 
 @needs_l1
-def test_wing_alone_diverges_in_yaw(rep):
-    """Regression of the Stage 2 finding, in force terms."""
-    assert rep.k_yaw_aero < 0.0
+def test_bare_wing_diverges_in_yaw_and_the_fin_cures_it(specs, rep):
+    """Regression of the Stage 2 finding, in force terms — and of the
+    fix. The BARE planform (flat, finless) has negative aerodynamic yaw
+    stiffness; the spec's Γ = 10° + 12 m² fin turns it positive, so the
+    bridle no longer has to carry yaw on its own."""
+    bare = solve(specs["V"], dihedral_deg=0.0, fin_area_m2=0.0)
+    assert bare.k_yaw_aero < 0.0
+    assert rep.k_yaw_aero > 0.0
 
 
 @needs_l1

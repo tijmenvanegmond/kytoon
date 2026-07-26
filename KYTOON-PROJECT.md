@@ -32,7 +32,7 @@ log (`kiteship-project-log.md`). This repo owns the *numbers*.
 | II | Helikite | `helikite` | zero-wind ISR loiter | oblate He lobe + 2 braced side deltas (v2) |
 | III | Spine | `spine` | boost + drone perch/recharge | inflatable keel spar carrying grapple rail + 300 kg dock |
 | IV | Torus | `torus` | calm-air recovery node | He ring, capture line through central duct |
-| V | Manta | `fatwing` | single-kytoon challenger | lofted multi-cell He fat wing, 3-pt tether (main + 2 control) |
+| V | Manta | `fatwing` | single-kytoon challenger | lofted multi-cell He fat wing, Γ 10° + 12 m² fin, 3-pt tether (main + 2 control) |
 
 (Retired alternates live in `specs/alternates/` — currently the original
 winged-blimp Manta (`blimp` archetype, Mk V-A). They stay solvable and
@@ -47,8 +47,10 @@ encoded in `test_fleet_covers_zero_to_20ms`. **Mk V (fat-wing v2,
 challenges BOTH slots: calm-air ISR (buoyant, +232 kg incl. tether) and
 a meaningful share of the traction role (18 kN vs Mk I/III's ~28). Caveats:
 its cl_op 0.7 / cd_op 0.10 are hand-picked; the Breukels section model is
-extrapolated at t/c 0.28 (flagged at L1); control-tether authority is
-asserted, not analyzed (L2/dynamics).
+extrapolated at t/c 0.28 (flagged at L1). Control-tether authority is
+**no longer asserted** — the lateral stack (§6, 2026-07-25) analysed it:
+a winchlet steers, the response is damping-limited, and the airframe
+needed Γ 10° + a 12 m² fin to be laterally stable at all.
 **Common interfaces across all Mks** (do not fork per-Mk): tether
 termination + load cell, grapple fixture geometry, IMU/GNSS + He telemetry,
 capture-line hardpoint.
@@ -162,7 +164,7 @@ consciously replace them (and update this file + tests):
 
 ## 4. The test suite is a contract
 
-127 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
+130 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
 test_geometry, test_l1_body_aero, test_l1_trim, and the lateral stack
 test_l1_mass3d / test_l1_lat_aero / test_l1_rig3d / test_l1_dyn3d — all
 passing at last compile. Categories:
@@ -475,11 +477,29 @@ legitimately lower per m² and not comparable to AWE traction figures.
   where CY_β ≈ +0.02, i.e. the design point sits exactly where the
   least-trusted derivative stops mattering. That is a *good* reason to
   prefer it, independent of whether the derivative is right.
-  Neither Γ nor a fin is in the spec — both are solver parameters for
-  now, because adding them is a design decision, not a modelling one.
-  The divergence at the CURRENT configuration is gated as a finding in
-  `test_l1_dyn3d`, so adopting either surfaces as a failure demanding a
-  re-read rather than passing in silence.
+  **ADOPTED 2026-07-25: `fat_wing.dihedral_deg: 10` + `fin: 12 m²`.**
+  Both are now spec fields (a `Fin` component, 4.2 kg, h 4.4 m × c 2.7 m
+  at an 18 m arm), so every solver defaults to the design; pass
+  `dihedral_deg=0, fin_area_m2=0` for the bare reference the findings
+  were made on. All 12 modes are damped at the adopted configuration —
+  slowest sway −0.038 ± 0.158j (40 s), yaw −0.399 ± 0.495j (12.7 s),
+  roll −4.6 ± 7.5j, pitch −5.8 ± 1.6j. The bare reference's +1.49 /s
+  divergence and each neighbouring configuration's divergence are both
+  gated, so the island cannot silently move.
+  **Two consequences nobody was looking for.** Folding the panels lifts
+  the CB 0.96 m, which lengthens the buoyancy arm about the main attach
+  and pulls the zero-q hang from **−41° to −31°**; and it raises the
+  outboard control attachments ~2.1 m, which keeps the control pair in
+  reach once the pod docks, so the drum's 3 kN auto-tend now pulls the
+  capture hover to **θ ≈ +1.5° — level**, where at Γ = 0 it hung at
+  −57°. A change made for lateral stability largely solved the
+  capture-levelling problem the TE pendant was designed for; the pendant
+  should be re-examined rather than assumed necessary.
+  Ripples handled: `l1_trim.mass_props` and `kytoon.geometry` now honour
+  the fold (the planar heave added mass takes the cos²Γ normal
+  projection, which the reduction gate caught immediately); the Godot
+  flight model and reference trajectory were regenerated and parity
+  re-verified at 0.020° / 70 N; `models/*.glb` re-exported folded.
 - **Mk V recovery procedure, from the Godot sim layer (2026-07-24)**:
   full winch-in 400 → 20 m at 5 m/s (godot/mkv_sim.gd
   `--recovery-test`, a validated GDScript port of l1_trim's dynamics

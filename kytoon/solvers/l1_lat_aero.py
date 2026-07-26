@@ -274,10 +274,17 @@ class L1LatAeroReport:
 
 
 def solve(spec: KytoonSpec, alpha_deg: float = 11.0,
-          dihedral_deg: float = 0.0,
-          fin_area_m2: float = 0.0) -> L1LatAeroReport:
+          dihedral_deg: float | None = None,
+          fin_area_m2: float | None = None) -> L1LatAeroReport:
+    """Γ and fin default to the SPEC. Pass explicit values to explore
+    (that is how the Γ × fin map was made); pass 0.0 for the flat,
+    finless reference."""
     _require()
     _check(spec)
+    if dihedral_deg is None:
+        dihedral_deg = spec.fat_wing.dihedral_deg
+    if fin_area_m2 is None:
+        fin_area_m2 = spec.fin.area if spec.fin else 0.0
     props = mass_props_3d(spec, dihedral_deg=dihedral_deg)
     sw = beta_sweep(spec, alpha_deg, dihedral_deg, fin_area_m2=fin_area_m2)
     cl_p = roll_damping(spec, dihedral_deg=dihedral_deg)
@@ -292,9 +299,10 @@ def solve(spec: KytoonSpec, alpha_deg: float = 11.0,
     ]
     if dihedral_deg == 0.0:
         flags.append("Γ = 0: dihedral effect comes from sweep alone")
-    if fin_area_m2 > 0.0:
+    spec_fin = spec.fin.area if spec.fin else 0.0
+    if fin_area_m2 > 0.0 and fin_area_m2 != spec_fin:
         flags.append(f"exploratory {fin_area_m2:.0f} m² fin at "
-                     f"{FIN_ARM_M:.0f} m — NOT in the spec")
+                     f"{FIN_ARM_M:.0f} m — NOT the spec's {spec_fin:.0f} m²")
 
     rep = L1LatAeroReport(
         spec=spec, alpha_deg=alpha_deg, dihedral_deg=dihedral_deg,
@@ -368,6 +376,10 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="L1 lateral aero for one spec")
     ap.add_argument("spec", help="path to a specs/*.yaml file")
     ap.add_argument("--alpha", type=float, default=11.0)
-    ap.add_argument("--dihedral", type=float, default=0.0)
+    ap.add_argument("--dihedral", type=float, default=None,
+                    help="override the spec's Γ [deg]; 0 = flat loft")
+    ap.add_argument("--fin", type=float, default=None,
+                    help="override the spec's fin area [m2]; 0 = finless")
     args = ap.parse_args()
-    print(_summary(solve(load_spec(args.spec), args.alpha, args.dihedral)))
+    print(_summary(solve(load_spec(args.spec), args.alpha, args.dihedral,
+                         args.fin)))

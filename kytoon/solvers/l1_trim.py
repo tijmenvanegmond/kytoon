@@ -173,10 +173,17 @@ def attach_point(spec: KytoonSpec, span_pos: float) -> np.ndarray:
                      -_naca_halfz(f, fw.thickness_ratio, c)])
 
 
-def mass_props(spec: KytoonSpec) -> MassProps:
+def mass_props(spec: KytoonSpec,
+               dihedral_deg: float | None = None) -> MassProps:
+    """Planar mass properties. Honours the spec's panel fold by default —
+    Γ moves the CB vertically, which the capture-hover hang angle depends
+    on. Pass 0.0 for the flat reference loft."""
     _require()
     fw = spec.fat_wing
-    mesh = _lofted_fatwing(fw)
+    if dihedral_deg is None:
+        dihedral_deg = fw.dihedral_deg
+    mesh = _lofted_fatwing(fw, dihedral_deg=dihedral_deg,
+                           fold_eta=fw.fold_eta)
     w_f = mesh.area_faces
     r_cb = mesh.center_mass[[0, 2]]
     r_skin = ((mesh.triangles_center * w_f[:, None]).sum(0) / w_f.sum())[[0, 2]]
@@ -191,7 +198,15 @@ def mass_props(spec: KytoonSpec) -> MassProps:
 
     ys = np.linspace(-fw.span / 2, fw.span / 2, 201)
     cs = np.array([fw.chord_at(abs(2 * y / fw.span)) for y in ys])
-    m_az = float(np.trapezoid(math.pi * RHO_AIR * cs**2 / 4, ys))
+    # A folded panel presents its normal at Γ to vertical, so only
+    # cos²Γ of its strip added mass resists heave. `l1_mass3d` builds
+    # this from the full per-strip normal; matching it here keeps the
+    # planar reduction exact (gated in test_l1_mass3d). The pitch term
+    # below keeps the flat-chord-plane arms — a ~3 % approximation at
+    # Γ = 10°, and the 3D model is authoritative if it ever matters.
+    folded = np.abs(ys) > fw.fold_eta * fw.span / 2
+    proj = np.where(folded, math.cos(math.radians(fw.dihedral_deg)) ** 2, 1.0)
+    m_az = float(np.trapezoid(math.pi * RHO_AIR * cs**2 / 4 * proj, ys))
     xqc = np.tan(np.radians(SWEEP_DEG)) * np.abs(ys)
     i_az = float(np.trapezoid(
         math.pi * RHO_AIR * cs**2 / 4

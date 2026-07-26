@@ -317,7 +317,9 @@ def build(spec: KytoonSpec) -> "trimesh.Scene":
     if spec.fat_wing is not None:
         fw = spec.fat_wing
         sweep_deg = 15.0
-        scene.add_geometry(_lofted_fatwing(fw, sweep_deg),
+        scene.add_geometry(_lofted_fatwing(fw, sweep_deg,
+                                           dihedral_deg=fw.dihedral_deg,
+                                           fold_eta=fw.fold_eta),
                            geom_name="body")
 
         # 3-point tether interface on the underside:

@@ -177,6 +177,16 @@ class FatWing(BaseModel):
     fabric_areal_density: float = Field(0.20, gt=0)
     fabric_strength_n_per_m: float = Field(120_000, gt=0)  # load-taped
     gas: str = Field("helium", description="'helium' or 'air'")
+    dihedral_deg: float = Field(
+        0.0, ge=0, lt=60,
+        description="panel fold Γ outboard of fold_eta. A rigid rotation, "
+                    "so volume and skin area are unchanged; it moves the "
+                    "CB vertically (not chordwise) and is the main "
+                    "LATERAL design lever")
+    fold_eta: float = Field(
+        0.0, ge=0, lt=1,
+        description="semi-span fraction where the fold starts "
+                    "(0 = dihedral straight from the root)")
 
     K_A: ClassVar[float] = 0.681   # ∫ NACA-4 closed-TE thickness dx / (t·c)
     K_P: ClassVar[float] = 2.1     # airfoil perimeter / chord (fat section)
@@ -242,6 +252,35 @@ class Tether(BaseModel):
         return self.mbl_kn * 1e3 / self.safety_factor
 
 
+class Fin(BaseModel):
+    """Vertical stabiliser on the centreline, aft.
+
+    Added 2026-07-25 for LATERAL stability. The tailless swept planform
+    is weathercock-unstable on its own (Cn_β ≈ −0.005/rad) and dihedral
+    — needed to cure the sway damping — makes that worse, so the fin is
+    what buys the yaw back. See KYTOON-PROJECT.md §6 for the Γ × fin
+    map; the pair is only stable together.
+    """
+    area: float = Field(gt=0, description="fin planform area [m²]")
+    arm: float = Field(18.0, gt=0,
+                       description="root LE station aft of the body origin")
+    aspect_ratio: float = Field(1.6, gt=0, description="height²/area")
+    areal_density: float = Field(
+        0.35, gt=0, description="kg/m² incl. spar and attachment")
+
+    @property
+    def height(self) -> float:
+        return math.sqrt(self.area * self.aspect_ratio)
+
+    @property
+    def chord(self) -> float:
+        return self.area / self.height
+
+    @property
+    def mass(self) -> float:
+        return self.area * self.areal_density
+
+
 class BridleAttachment(BaseModel):
     """Bridle support positions along the spar, as span fractions [0..1]."""
     positions: list[float] = Field(default_factory=lambda: [0.25, 0.75])
@@ -272,6 +311,7 @@ class KytoonSpec(BaseModel):
     lobe: Lobe | None = None
     torus: TorusEnvelope | None = None
     fat_wing: FatWing | None = None
+    fin: Fin | None = None
     hull: Hull | None = None
     tether: Tether = Field(default_factory=Tether)
     bridle: BridleAttachment = Field(default_factory=BridleAttachment)
@@ -337,6 +377,8 @@ class KytoonSpec(BaseModel):
             m += self.torus.mass
         if self.fat_wing is not None:
             m += self.fat_wing.mass
+        if self.fin is not None:
+            m += self.fin.mass
         if self.hull is not None:
             m += self.hull.mass
         return m
