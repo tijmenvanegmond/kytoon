@@ -84,6 +84,11 @@ kytoon/solvers/l1_lat_aero.py L1 lateral Stage 2: CY/Cl/Cn_β from an
 kytoon/solvers/l1_rig3d.py    L1 lateral Stage 3: 3D force closure with
                         the two control lines separated — yaw stiffness
                         of the bridle, differential-trim steering.
+kytoon/solvers/l1_dyn3d.py    L1 lateral Stage 4: 12-state linearisation
+                        and modal analysis. Validates the stack (exact
+                        longitudinal/lateral decoupling, roll mode as a
+                        probe of added inertia) and finds the lateral
+                        divergence. Statics-linear; no time domain yet.
 kytoon/aero.py          TU Delft V3 benchmark loader + system-polar model.
 kytoon/report.py        CLI: python -m kytoon.report specs/ -o reports/l0.md
 kytoon/viz.py           CLI: python -m kytoon.viz specs/ -o reports/figures
@@ -157,10 +162,10 @@ consciously replace them (and update this file + tests):
 
 ## 4. The test suite is a contract
 
-115 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
-test_geometry, test_l1_body_aero, test_l1_trim, and the lateral trio
-test_l1_mass3d / test_l1_lat_aero / test_l1_rig3d — all passing at last
-compile. Categories:
+127 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
+test_geometry, test_l1_body_aero, test_l1_trim, and the lateral stack
+test_l1_mass3d / test_l1_lat_aero / test_l1_rig3d / test_l1_dyn3d — all
+passing at last compile. Categories:
 
 - **Physics anchors** (must never change without a source): He net-lift
   constant; torus volume closed form; wrinkle-moment reference case
@@ -187,6 +192,14 @@ compile. Categories:
   gate per rigging option — TE pendant levels the hover (0.4–1.2 kN,
   main stays loaded), locked ctl drum can pin level (thin main margin),
   and the hang-leveling attach station cannot fly the mission.
+- **Lateral dynamics gates** (test_l1_dyn3d): longitudinal and lateral
+  must decouple to finite-difference noise; the generalised mass must
+  stay symmetric positive-definite; the roll mode must match √(k/I)
+  within 5 % *and* sit >3× from the no-added-inertia value; the
+  longitudinal block must stay damped; and the lateral divergence is
+  gated **as a finding** — if a fin lands in the spec or CY_β is
+  revised, that test fails and demands a re-read rather than passing in
+  silence.
 - **Lateral gates** (test_l1_mass3d/lat_aero/rig3d): every planar term
   must come back unchanged at Γ = 0 (the reduction is the main guard on
   the whole lateral stack); roll added inertia > 8× structural; roll
@@ -408,6 +421,41 @@ legitimately lower per m² and not comparable to AWE traction figures.
   their 2π bound; the wing is treated as rigid, so fabric warp under
   asymmetric bridle load (which would only add authority) is omitted;
   statics only.
+- **Mk V's LATERAL dynamics diverge — Stage 4 (2026-07-25)**: the 12-state
+  linearisation (`l1_dyn3d`) validates cleanly and then reports a
+  divergent lateral mode at **+1.49 /s (0.5 s doubling)** at 12 m/s,
+  while the longitudinal block stays damped (−0.12 /s). Everything the
+  planar programme established survives; the new information is
+  entirely in the half it could not represent.
+  The model earns the right to say so first: longitudinal and lateral
+  decouple **exactly** (cross-participation ≤ 2e-6, i.e. to
+  finite-difference noise), and the roll mode lands at 7.12 rad/s
+  against the 7.33 closed form — 3 %, and 3.6× away from the value
+  without added inertia, so Stage 1's contested term is confirmed
+  dynamically.
+  Two separable drivers:
+  * **CY_β = +0.126/rad → negative sway damping.** A side force in the
+    *same* direction as the slip, so the air feeds the motion:
+    C[1,1] = +211 N per m/s, which alone is +0.79 /s — and that is
+    exactly the floor the sensitivity sweep bottoms out at.
+  * **Control-line geometry couples roll into sway and yaw.** Static
+    condensation: the tether's sway restoring is −437 N/m, the roll path
+    returns +433, leaving −4 N/m. The roll↔yaw loop gain is 0.90.
+  Sign convention independently validated: adding a 20 m² aft fin drives
+  Cn_β −0.005 → +0.097 and CY_β +0.126 → −0.023, exactly as a
+  weathercock stabiliser must, so these are real predictions and not a
+  frame error. **A fin is indicated** (20 m² cuts divergence to
+  +0.38 /s) but does not cure it alone. The instability survives
+  dropping control-line stiffness 100×, moving the control attachments
+  chordwise, and changing pod standoff (longer standoff is *worse*:
+  +3.0 /s at 200 m — the 50 m pod is the right choice laterally too).
+  **Do not treat this as settled.** CY_β is a single semi-empirical
+  derivative carrying most of the result, real tethered wings of this
+  class do fly, and a 1.3 s doubling time would make one unflyable — so
+  the magnitude is the prime suspect. Resolving it needs an independent
+  CY_β (VSM with sideslip, or hybrid-aerostat data) before either the
+  problem or the fin is designed around. Gated as a finding in
+  `test_l1_dyn3d` so a change surfaces as a failure, not silence.
 - **Mk V recovery procedure, from the Godot sim layer (2026-07-24)**:
   full winch-in 400 → 20 m at 5 m/s (godot/mkv_sim.gd
   `--recovery-test`, a validated GDScript port of l1_trim's dynamics
