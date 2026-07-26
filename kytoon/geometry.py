@@ -217,6 +217,54 @@ def _lofted_fatwing(fw, sweep_deg: float = 15.0, n_span: int = 33,
     return mesh
 
 
+def _fin_mesh(fin, fw, n_half: int = 12):
+    """Vertical stabiliser on the centreline: symmetric sections lofted
+    root-to-tip, standing on the loft's upper surface.
+
+    Shape comes entirely from the spec's `Fin` (arm, area, aspect ratio,
+    taper, sweep) so this and `l1_lat_aero.build_plane` describe the same
+    surface. Closed, since it is a rigid structure rather than soft goods.
+    """
+    rings = []
+    for frac in (0.0, 1.0):
+        c = fin.chord * (1 - (1 - fin.taper) * frac)
+        # root sits on the body skin, so start at the loft's local half
+        # thickness rather than at z = 0
+        z0 = _naca_halfz_at(fw, fin.arm) if frac == 0.0 else 0.0
+        sec = _airfoil_section(c, 0.12 * c, n_half=n_half)   # naca0012
+        x = fin.arm + fin.sweep_fraction * fin.chord * frac
+        rings.append(np.column_stack([
+            sec[:, 0] + x,
+            sec[:, 1],                       # section thickness -> y (span)
+            np.full(len(sec), z0 + fin.height * frac)]))
+    verts = np.vstack(rings)
+    n = rings[0].shape[0]
+    faces = []
+    for j in range(n):
+        a, b = j, (j + 1) % n
+        faces += [[a, b, a + n], [b, b + n, a + n]]
+    # cap root and tip
+    verts = np.vstack([verts, rings[0].mean(axis=0), rings[1].mean(axis=0)])
+    for j in range(n):
+        a, b = j, (j + 1) % n
+        faces.append([b, a, 2 * n])
+        faces.append([a + n, b + n, 2 * n + 1])
+    mesh = trimesh.Trimesh(vertices=verts, faces=faces, process=True)
+    if mesh.volume < 0:
+        mesh.invert()
+    return mesh
+
+
+def _naca_halfz_at(fw, x_body: float) -> float:
+    """Upper-surface height of the centre section at a body-frame x."""
+    c = fw.chord
+    xb = float(np.clip((x_body + 0.25 * c) / c, 0.0, 1.0))
+    tr = fw.thickness_ratio
+    return 5 * tr * c * (0.2969 * math.sqrt(xb) - 0.1260 * xb
+                         - 0.3516 * xb**2 + 0.2843 * xb**3
+                         - 0.1036 * xb**4)
+
+
 def _loft_surface(rows: list[np.ndarray]):
     """Open quad-strip surface between successive rows of equal length."""
     rows = np.asarray(rows)
@@ -341,6 +389,20 @@ def build(spec: KytoonSpec) -> "trimesh.Scene":
         pod.apply_translation([0.3 * fw.chord, 0.0,
                                -0.5 * fw.t_max - 0.6])
         scene.add_geometry(pod, geom_name="pod")
+
+        if spec.fin is not None:
+            scene.add_geometry(_fin_mesh(spec.fin, fw), geom_name="fin")
+            # the fin sits aft of the trailing edge, so it needs a boom to
+            # stand on — and that boom is load-bearing (a TE-flush fin
+            # leaves the lateral mode divergent). Draw it, so the model
+            # cannot imply a fin floating in free air.
+            te_x = 0.75 * fw.chord
+            if spec.fin.arm > te_x:
+                scene.add_geometry(
+                    _tube_between(np.array([te_x - 0.3, 0.0, 0.0]),
+                                  np.array([spec.fin.arm + 0.3, 0.0, 0.0]),
+                                  0.22),
+                    geom_name="fin_boom")
 
     if spec.hull is not None:
         # blimp alternate: prolate hull, long axis downwind; side deltas

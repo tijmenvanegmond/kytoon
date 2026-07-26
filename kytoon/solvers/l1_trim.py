@@ -161,16 +161,41 @@ def _naca_halfz(xb: float, tr: float, c: float) -> float:
                          - 0.3516 * xb**2 + 0.2843 * xb**3 - 0.1036 * xb**4)
 
 
-def attach_point(spec: KytoonSpec, span_pos: float) -> np.ndarray:
-    """Body-frame (x, z) of a lower-surface attach at a spanwise station."""
+def fold(y: float, z: float, gamma: float, y_break: float
+         ) -> tuple[float, float]:
+    """Apply the panel fold to a point on the (unfolded) chord plane.
+
+    Lives here rather than in `l1_mass3d` so the planar helpers can use
+    it too — the outboard bridle stations rise with Γ, and forgetting
+    that puts the steering lines metres out of place.
+    """
+    if gamma == 0.0 or abs(y) <= y_break:
+        return y, z
+    sgn = math.copysign(1.0, y)
+    dy = abs(y) - y_break
+    return (sgn * (y_break + dy * math.cos(gamma) - z * math.sin(gamma)),
+            dy * math.sin(gamma) + z * math.cos(gamma))
+
+
+def attach_point(spec: KytoonSpec, span_pos: float,
+                 dihedral_deg: float | None = None) -> np.ndarray:
+    """Body-frame (x, z) of a lower-surface attach at a spanwise station.
+
+    Honours the spec's fold: at Γ = 10° the outboard stations sit ~2.1 m
+    HIGHER than on the flat loft, which changes the control-line
+    geometry, its stiffness and its pitch arm. Pass 0.0 for the flat
+    reference. The centre station is at y = 0 and so never moves.
+    """
     fw = spec.fat_wing
     f = spec.bridle.chord_fraction
     y_frac = abs(2 * span_pos - 1.0)
     c = fw.chord_at(y_frac)
     y = (span_pos - 0.5) * fw.span
     x_le = math.tan(math.radians(SWEEP_DEG)) * abs(y) - 0.25 * c
-    return np.array([x_le + f * c,
-                     -_naca_halfz(f, fw.thickness_ratio, c)])
+    g = fw.dihedral_deg if dihedral_deg is None else dihedral_deg
+    _, z_f = fold(y, -_naca_halfz(f, fw.thickness_ratio, c),
+                  math.radians(g), fw.fold_eta * fw.span / 2)
+    return np.array([x_le + f * c, z_f])
 
 
 def mass_props(spec: KytoonSpec,
@@ -220,9 +245,23 @@ def mass_props(spec: KytoonSpec,
         m_added_z=m_az, i_added=i_az)
 
 
-def ctl_span_offset(spec: KytoonSpec) -> float:
-    """Spanwise (out-of-plane) offset of each outboard attach [m]."""
-    return (spec.bridle.positions[2] - 0.5) * spec.fat_wing.span
+def ctl_span_offset(spec: KytoonSpec,
+                    dihedral_deg: float | None = None) -> float:
+    """Spanwise (out-of-plane) offset of each outboard attach [m].
+
+    The fold shortens it slightly (y·cos Γ) while lifting the station —
+    see `attach_point`. This is the roll lever, so it belongs to the
+    folded geometry, not the flat planform.
+    """
+    fw = spec.fat_wing
+    f = spec.bridle.chord_fraction
+    span_pos = spec.bridle.positions[2]
+    c = fw.chord_at(abs(2 * span_pos - 1.0))
+    y = (span_pos - 0.5) * fw.span
+    g = fw.dihedral_deg if dihedral_deg is None else dihedral_deg
+    y_f, _ = fold(y, -_naca_halfz(f, fw.thickness_ratio, c),
+                  math.radians(g), fw.fold_eta * fw.span / 2)
+    return y_f
 
 
 def ctl_line_length(spec: KytoonSpec) -> float:

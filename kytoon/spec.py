@@ -265,6 +265,9 @@ class Fin(BaseModel):
     arm: float = Field(18.0, gt=0,
                        description="root LE station aft of the body origin")
     aspect_ratio: float = Field(1.6, gt=0, description="height²/area")
+    taper: float = Field(0.65, gt=0, le=1, description="tip/root chord")
+    sweep_fraction: float = Field(
+        0.4, ge=0, description="tip LE offset aft, in root chords")
     areal_density: float = Field(
         0.35, gt=0, description="kg/m² incl. spar and attachment")
 
@@ -274,7 +277,12 @@ class Fin(BaseModel):
 
     @property
     def chord(self) -> float:
-        return self.area / self.height
+        """Root chord. Area is height × mean chord, so the taper feeds in."""
+        return 2 * self.area / (self.height * (1 + self.taper))
+
+    @property
+    def tip_chord(self) -> float:
+        return self.chord * self.taper
 
     @property
     def mass(self) -> float:

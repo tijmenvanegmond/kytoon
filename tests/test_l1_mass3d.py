@@ -19,7 +19,9 @@ import pytest
 from kytoon.solvers.l1_mass3d import (
     HAS_L1, attach_point_3d, mass_props_3d,
 )
-from kytoon.solvers.l1_trim import attach_point, mass_props
+from kytoon.solvers.l1_trim import (
+    attach_point, ctl_span_offset, mass_props,
+)
 from kytoon.spec import load_all
 
 needs_l1 = pytest.mark.skipif(not HAS_L1,
@@ -90,9 +92,32 @@ def test_attach_point_reduces_to_planar(specs):
         a2 = attach_point(s, pos)
         assert a3[0] == pytest.approx(a2[0], abs=1e-12)
         assert a3[2] == pytest.approx(a2[1], abs=1e-12)
-    # ... and carries the span offset the planar model drops
+    # ... and carries the span offset the planar model drops, folded —
+    # the fold shortens it to y·cos Γ while lifting the station, and
+    # ctl_span_offset (the roll lever) must agree
+    raw = (s.bridle.positions[2] - 0.5) * s.fat_wing.span
+    assert attach_point_3d(s, s.bridle.positions[2],
+                           dihedral_deg=0.0)[1] == pytest.approx(raw)
     assert attach_point_3d(s, s.bridle.positions[2])[1] == pytest.approx(
-        (s.bridle.positions[2] - 0.5) * s.fat_wing.span)
+        ctl_span_offset(s))
+    assert ctl_span_offset(s) < raw
+
+
+@needs_l1
+def test_outboard_attachments_rise_with_the_fold(specs):
+    """The bug this pair of defaults once hid: the Godot exporter shipped
+    unfolded steering-line attachments while the mass properties were
+    folded, putting them 2.1 m out of place. Planar and 3D must resolve
+    the same fold by default."""
+    s = specs["V"]
+    flat = attach_point_3d(s, s.bridle.positions[2], dihedral_deg=0.0)
+    folded = attach_point_3d(s, s.bridle.positions[2])
+    assert folded[2] - flat[2] > 1.5
+    assert attach_point(s, s.bridle.positions[2])[1] == pytest.approx(
+        folded[2], abs=1e-12)
+    # the centre station sits at y = 0, so it never moves
+    assert attach_point_3d(s, s.bridle.positions[1])[2] == pytest.approx(
+        attach_point_3d(s, s.bridle.positions[1], dihedral_deg=0.0)[2])
 
 
 @needs_l1

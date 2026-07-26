@@ -29,8 +29,17 @@ fat_wing:
                        # from -41 to -31 deg. More Gamma costs yaw margin.
 fin:
   area: 12.0           # smallest fin that closes the lateral loop at G=10
-  arm: 18.0            # root LE aft of the body origin
-  areal_density: 0.35
+  arm: 13.0            # root LE aft of the body origin. The centre chord's
+                       # TE is at 9.98 m, so this implies a ~3 m BOOM, and
+                       # that boom is load-bearing rather than cosmetic: a
+                       # fin flush on the TE (arm <= 10) leaves the lateral
+                       # mode DIVERGENT (+0.07 /s). 13 m is the shortest arm
+                       # that is both stable (-0.047 /s) and well-posed —
+                       # 12 m is nominally better (-0.064) but its
+                       # differential-trim solve goes non-monotonic, i.e.
+                       # the equilibrium is near-singular there.
+  areal_density: 0.35  # fin surface + its spar. The BOOM mass is NOT
+                       # counted anywhere yet — see §6.
 canopy:                # aero coefficients live here; skin mass is the
   area: 288.0          # fat wing's (validator checks planform agreement)
   span: 32.0

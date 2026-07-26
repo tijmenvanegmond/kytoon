@@ -112,14 +112,17 @@ def test_tensions_agree_with_the_planar_solver(specs, rep):
 # --- the Stage 2 question, answered ---------------------------------------
 
 @needs_l1
-def test_bare_wing_diverges_in_yaw_and_the_fin_cures_it(specs, rep):
-    """Regression of the Stage 2 finding, in force terms — and of the
-    fix. The BARE planform (flat, finless) has negative aerodynamic yaw
-    stiffness; the spec's Γ = 10° + 12 m² fin turns it positive, so the
-    bridle no longer has to carry yaw on its own."""
+def test_the_bridle_carries_yaw_at_the_adopted_fin_arm(specs, rep):
+    """Regression of the Stage 2 finding, in force terms. The bare
+    planform diverges in yaw; the spec's fin at a 13 m arm *reduces*
+    that but does not reverse it, so heading is still held by the
+    bridle — with a wide margin. Making Cn_β itself positive would need
+    a much longer boom than the airframe justifies."""
     bare = solve(specs["V"], dihedral_deg=0.0, fin_area_m2=0.0)
     assert bare.k_yaw_aero < 0.0
-    assert rep.k_yaw_aero > 0.0
+    assert rep.k_yaw_aero < 0.0
+    assert rep.k_yaw_aero > bare.k_yaw_aero      # the fin helps
+    assert rep.yaw_stable and rep.bridle_yaw_margin > 10.0
 
 
 @needs_l1

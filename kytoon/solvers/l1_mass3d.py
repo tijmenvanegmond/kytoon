@@ -41,6 +41,7 @@ import numpy as np
 
 from kytoon.solvers.l0 import NET_LIFT_PER_M3, RHO_AIR
 from kytoon.solvers.l1_trim import (
+    fold,
     G, SWEEP_DEG, HAS_L1, _naca_halfz, _require,
 )
 from kytoon.spec import Archetype, KytoonSpec
@@ -107,25 +108,17 @@ def _check(spec: KytoonSpec) -> None:
             f"lofted fat wing only (got {spec.archetype.value})")
 
 
-def fold(y: float, z: float, gamma: float, y_break: float
-         ) -> tuple[float, float]:
-    """Apply the panel fold to a point on the (unfolded) chord plane."""
-    if gamma == 0.0 or abs(y) <= y_break:
-        return y, z
-    sgn = math.copysign(1.0, y)
-    dy = abs(y) - y_break
-    return (sgn * (y_break + dy * math.cos(gamma) - z * math.sin(gamma)),
-            dy * math.sin(gamma) + z * math.cos(gamma))
-
-
 def attach_point_3d(spec: KytoonSpec, span_pos: float,
-                    dihedral_deg: float = 0.0,
-                    fold_eta: float = 0.0) -> np.ndarray:
+                    dihedral_deg: float | None = None,
+                    fold_eta: float | None = None) -> np.ndarray:
     """Body-frame (x, y, z) of a lower-surface bridle attachment.
 
-    The planar `l1_trim.attach_point` is this with the y dropped; with
-    dihedral the outboard stations also rise.
+    The planar `l1_trim.attach_point` is this with the y dropped — both
+    default to the SPEC's fold, so they cannot silently disagree (they
+    did once: the Godot exporter shipped unfolded steering-line
+    attachments while the mass properties were folded).
     """
+    dihedral_deg, fold_eta = spec_fold(spec, dihedral_deg, fold_eta)
     fw = spec.fat_wing
     f = spec.bridle.chord_fraction
     y_frac = abs(2 * span_pos - 1.0)

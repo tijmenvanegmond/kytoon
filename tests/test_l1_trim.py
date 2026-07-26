@@ -202,23 +202,32 @@ def test_zero_q_hang_anchor(specs, rep):
 
 
 @needs_l1
-def test_hang_matches_sim_free_hang_before_the_pod_docks(specs):
-    """Cross-model regression against the Godot recovery run.
+def test_docked_hover_levelling_matches_the_sim(specs):
+    """Cross-model regression against the Godot recovery run's endgame.
 
-    Re-pointed 2026-07-25. It used to compare against the run's final
-    attitude (−57°), but at the adopted Γ = 10° that is no longer a free
-    hang: the raised outboard attachments keep the control pair in
-    reach, so once the pod docks its drum auto-tends at 3 kN and pulls
-    the kite to θ ≈ +1.5° — level, which is what the capture pendant was
-    for. The comparable moment is now PRE-dock, where the control lines
-    are slack (T_ctl = 0) and the kite genuinely hangs: the sim reads
-    −29.8° there against this static −30.6°.
+    Re-pointed 2026-07-25. It used to compare a free hang against the
+    run's final attitude, which stopped being a free hang once Γ = 10°
+    was adopted: in the docked state BOTH lines are loaded (main at
+    x = 1.33 m, control pair at x = 3.93 m), and 2.6 m of chordwise
+    separation is what pins pitch — the same mechanism `pendant_for_level`
+    describes, with the tended control drum playing the pendant's part.
+
+    Statics say the pair needs 2.40 kN at that station to sit exactly
+    level; the sim tends it at a constant 3.00 kN and lands at θ ≈ +1.2°,
+    i.e. slightly over-tended and therefore slightly nose-up. The two
+    models agreeing on that sign and magnitude is the check.
     """
     s = specs["V"]
-    roots = hang_trim(s, mass_props(s), aero_table(s), 0.0)
-    stable = [t for t, ok in roots if ok]
-    assert len(stable) == 1
-    assert abs(stable[0] - (-29.8)) < 3.0
+    props = mass_props(s)
+    c = s.fat_wing.chord
+    ctl_frac = (attach_point(s, s.bridle.positions[2])[0] + 0.25 * c) / c
+    t_level, t_main_left = pendant_for_level(
+        s, props, aero_table(s), pendant_fraction=ctl_frac)
+    assert 2.0e3 < t_level < 2.8e3
+    # the sim's 3 kN tend exceeds it, so the main is nearly unloaded and
+    # the kite sits a touch nose-up — both of which the sim shows
+    assert t_level < 3.0e3
+    assert 0.0 < t_main_left < 1.0e3
 
 
 @needs_l1

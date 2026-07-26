@@ -85,11 +85,21 @@ def test_tailless_wing_is_weathercock_unstable(specs):
 
 
 @needs_l1
-def test_spec_configuration_is_weathercock_stable(rep):
-    """...and with the spec's Γ = 10° + 12 m² fin, it is cured: the fin
-    has to beat both the bare planform AND the extra yaw divergence the
-    dihedral brings."""
-    assert rep.cn_beta > 0.0
+def test_the_fin_fixes_sway_damping_not_weathercock(specs, rep):
+    """What the spec's Γ = 10° + 12 m² fin at a 13 m arm actually buys.
+
+    Not aerodynamic yaw stability — Cn_β stays slightly negative at this
+    arm (it would need a much longer boom), and the bridle carries yaw
+    with a 32× margin instead. What the pair *does* fix is the sway
+    damping: CY_β flips from +0.126 (side force reinforcing the slip,
+    worth ~+0.8 /s of divergence) to −0.07, i.e. opposing it. That is the
+    driver the Γ × fin map was actually closing.
+    """
+    bare = solve(specs["V"], dihedral_deg=0.0, fin_area_m2=0.0)
+    assert bare.cy_beta > 0.0                 # bare: reinforces the slip
+    assert rep.cy_beta < 0.0                  # adopted: opposes it
+    assert rep.cn_beta > bare.cn_beta         # fin helps yaw, not enough
+    assert rep.cn_beta < 0.0                  # ...so the bridle carries it
 
 
 @needs_l1

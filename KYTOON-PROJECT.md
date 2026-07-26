@@ -164,7 +164,7 @@ consciously replace them (and update this file + tests):
 
 ## 4. The test suite is a contract
 
-130 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
+131 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
 test_geometry, test_l1_body_aero, test_l1_trim, and the lateral stack
 test_l1_mass3d / test_l1_lat_aero / test_l1_rig3d / test_l1_dyn3d — all
 passing at last compile. Categories:
@@ -477,7 +477,25 @@ legitimately lower per m² and not comparable to AWE traction figures.
   where CY_β ≈ +0.02, i.e. the design point sits exactly where the
   least-trusted derivative stops mattering. That is a *good* reason to
   prefer it, independent of whether the derivative is right.
-  **ADOPTED 2026-07-25: `fat_wing.dihedral_deg: 10` + `fin: 12 m²`.**
+  **The fin needs a BOOM, and it is load-bearing (2026-07-25).** Adding
+  the fin to the geometry kernel exposed that a 12 m² fin at the 18 m arm
+  used in the exploratory sweep floats 8 m behind the airframe: the
+  centre chord's TE is at x = 9.98 m. Re-swept against arm, the fin only
+  works if it is standing off the TE — flush (arm ≤ 10 m) leaves the
+  lateral mode **divergent at +0.07 /s**. Adopted `arm: 13.0`, a ~3 m
+  boom: the shortest that is both stable (−0.047 /s) and well-posed
+  (12 m is nominally better at −0.064 but its differential-trim solve
+  goes non-monotonic, i.e. the equilibrium is near-singular there).
+  **The boom's mass is not counted anywhere yet** — `fin.areal_density`
+  covers the surface and its spar only.
+  Also corrected: at this arm the fin does **not** make Cn_β positive
+  (−0.0052 bare → −0.0040), so heading is still held by the bridle (32×
+  margin, net +101 kN·m/rad). What the Γ + fin pair actually fixes is the
+  sway damping — **CY_β flips +0.126 → −0.073**, from reinforcing the
+  slip to opposing it. That was always the dominant driver; the fin's
+  yaw contribution is a bonus, not the mechanism.
+  **ADOPTED 2026-07-25: `fat_wing.dihedral_deg: 10` + `fin: 12 m²`
+  at a 13 m arm.**
   Both are now spec fields (a `Fin` component, 4.2 kg, h 4.4 m × c 2.7 m
   at an 18 m arm), so every solver defaults to the design; pass
   `dihedral_deg=0, fin_area_m2=0` for the bare reference the findings
@@ -488,13 +506,33 @@ legitimately lower per m² and not comparable to AWE traction figures.
   gated, so the island cannot silently move.
   **Two consequences nobody was looking for.** Folding the panels lifts
   the CB 0.96 m, which lengthens the buoyancy arm about the main attach
-  and pulls the zero-q hang from **−41° to −31°**; and it raises the
-  outboard control attachments ~2.1 m, which keeps the control pair in
-  reach once the pod docks, so the drum's 3 kN auto-tend now pulls the
-  capture hover to **θ ≈ +1.5° — level**, where at Γ = 0 it hung at
-  −57°. A change made for lateral stability largely solved the
-  capture-levelling problem the TE pendant was designed for; the pendant
-  should be re-examined rather than assumed necessary.
+  and pulls the zero-q free hang from **−41° to −31°**; and it lifts the
+  outboard bridle stations 2.1 m (they are on the folded panels), which
+  changes the whole control-line geometry — stiffness, pitch arm, and
+  the capture hover.
+- **The capture pendant is not needed to LEVEL the hover, but it is what
+  keeps the main line loaded while level (2026-07-25)**: in the docked
+  state both lines carry load — main at x = 1.33 m, control pair at
+  x = 3.93 m — and that 2.6 m of chordwise separation is what pins
+  pitch. It is exactly the mechanism `pendant_for_level` describes, with
+  the tended control drum playing the pendant's part. What it costs:
+
+  | aft station | x | tension to level | main left |
+  |---|--:|--:|--:|
+  | control pair (existing) | 3.93 m | 2.40 kN | +0.39 kN |
+  | pendant 0.70c | 5.99 m | 1.34 kN | +1.45 kN |
+  | pendant 0.95c | 9.31 m | 0.78 kN | +2.01 kN |
+
+  Only 2.79 kN of net buoyancy is available to share, so levelling on
+  the control pair consumes nearly all of it: the Godot run tends at a
+  constant 3.00 kN, over-shoots the 2.40 kN needed, and lands at
+  θ ≈ +1.2° with the main line all but slack. A dedicated pendant does
+  the same job **passively** at 0.78 kN and leaves 2.0 kN on the main.
+  So the pendant's value is re-framed, not eliminated: it is a
+  load-sharing device that keeps a well-tensioned capture state, and it
+  trades ~2.4 kN of sustained winchlet duty for a passive line. Whether
+  a near-slack main is acceptable during arm capture is a ship-side
+  question, not a solver one.
   Ripples handled: `l1_trim.mass_props` and `kytoon.geometry` now honour
   the fold (the planar heave added mass takes the cos²Γ normal
   projection, which the reduction gate caught immediately); the Godot

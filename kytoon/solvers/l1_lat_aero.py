@@ -39,7 +39,7 @@ from kytoon.solvers.l1_mass3d import MassProps3D, mass_props_3d
 from kytoon.solvers.l1_trim import (
     HAS_L1, SWEEP_DEG, _coeffs, _require, aero_table, ctl_span_offset,
 )
-from kytoon.spec import Archetype, KytoonSpec
+from kytoon.spec import Archetype, Fin, KytoonSpec
 
 try:
     import aerosandbox as asb
@@ -86,13 +86,17 @@ def build_plane(spec: KytoonSpec, dihedral_deg: float = 0.0,
             chord=c, airfoil=af))
     wings = [asb.Wing(name="fatwing", symmetric=True, xsecs=xsecs)]
     if fin_area_m2 > 0.0:
-        height = math.sqrt(fin_area_m2 * FIN_AR)
-        chord = fin_area_m2 / height
+        # shape from the spec's Fin so the aero model and the geometry
+        # kernel cannot drift; area is the caller's, to allow sweeps
+        f = spec.fin or Fin(area=fin_area_m2)
+        shape = f.model_copy(update={"area": fin_area_m2})
         wings.append(asb.Wing(name="fin", symmetric=False, xsecs=[
-            asb.WingXSec(xyz_le=[FIN_ARM_M, 0.0, 0.0], chord=chord,
+            asb.WingXSec(xyz_le=[shape.arm, 0.0, 0.0], chord=shape.chord,
                          airfoil=asb.Airfoil("naca0012")),
-            asb.WingXSec(xyz_le=[FIN_ARM_M + 0.4 * chord, 0.0, height],
-                         chord=0.65 * chord, airfoil=asb.Airfoil("naca0012")),
+            asb.WingXSec(
+                xyz_le=[shape.arm + shape.sweep_fraction * shape.chord,
+                        0.0, shape.height],
+                chord=shape.tip_chord, airfoil=asb.Airfoil("naca0012")),
         ]))
     s_ref = spec.canopy.area
     return asb.Airplane(
