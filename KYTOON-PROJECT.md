@@ -91,6 +91,11 @@ kytoon/solvers/l1_dyn3d.py    L1 lateral Stage 4: 12-state linearisation
                         longitudinal/lateral decoupling, roll mode as a
                         probe of added inertia) and finds the lateral
                         divergence. Statics-linear; no time domain yet.
+kytoon/solvers/l1_sim3d.py    L1 lateral Stage 5: nonlinear 6-DOF time
+                        domain — quaternion attitude, Kirchhoff form so
+                        added mass enters the Coriolis terms too, and an
+                        exact-chart linearisation. The model crosswind
+                        manoeuvring runs on.
 kytoon/aero.py          TU Delft V3 benchmark loader + system-polar model.
 kytoon/report.py        CLI: python -m kytoon.report specs/ -o reports/l0.md
 kytoon/viz.py           CLI: python -m kytoon.viz specs/ -o reports/figures
@@ -164,9 +169,10 @@ consciously replace them (and update this file + tests):
 
 ## 4. The test suite is a contract
 
-131 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
+138 tests across test_l0, test_l1_aero, test_l1_tether, test_viz,
 test_geometry, test_l1_body_aero, test_l1_trim, and the lateral stack
-test_l1_mass3d / test_l1_lat_aero / test_l1_rig3d / test_l1_dyn3d — all
+test_l1_mass3d / test_l1_lat_aero / test_l1_rig3d / test_l1_dyn3d /
+test_l1_sim3d — all
 passing at last compile. Categories:
 
 - **Physics anchors** (must never change without a source): He net-lift
@@ -423,6 +429,55 @@ legitimately lower per m² and not comparable to AWE traction figures.
   their 2π bound; the wing is treated as rigid, so fabric warp under
   asymmetric bridle load (which would only add authority) is omitted;
   statics only.
+- **Steering authority is limited by control-line SLACK, ~6° of bank, not
+  the 20–30° statics implied (2026-07-25)**: the first thing the nonlinear
+  6-DOF found. Stage 3 statics said 0.30 m of differential trim is a
+  steady equilibrium at ~20° bank, and Stage 2's couple-vs-damping
+  estimate implied 4 kN would bank 30° in 5 s. Integrating it says
+  otherwise:
+
+  | differential | outcome |
+  |---|---|
+  | 0.05 m | +3.2° bank, holds (min T_ctl 1.12 kN) |
+  | 0.10 m | +6.3° bank, holds (min T_ctl 0.39 kN) |
+  | 0.15 m | **departs** — roll past 120°, min T_ctl 0.00 |
+
+  Mechanism: differential trim unloads the paying-out line. The pair only
+  carries **1.74 kN** at trim, and at 27.5 kN/m that is 0.063 m of
+  available stretch, so past ~0.1 m one line goes slack — which removes
+  the constraint pinning roll and pitch, and the founding
+  single-confluence instability takes over. **Ramp rate is irrelevant**
+  (an instantaneous step and 0.02 m/s both depart at 0.15 m), so it is a
+  magnitude limit, not a shock.
+  **Pretension is not a knob.** Control tension is *determined* by moment
+  closure at trim, not chosen: 0.25 m of extra common-mode pull moved it
+  only 1.74 → 2.19 kN and made the departure worse. To steer harder the
+  rig needs a bigger moment to balance (more chordwise offset between
+  main and control stations) or a fourth line — a design change, not a
+  setting.
+  Trust boundary: the *onset* is line mechanics and solid; the
+  post-departure motion runs on flat-plate extrapolation at β ≈ −46° and
+  is not a prediction.
+- **Stage 5 nonlinear 6-DOF confirms the lateral stack (2026-07-25)**:
+  `l1_sim3d` integrates the full nonlinear equations — quaternion
+  attitude (the recovery endgame already reaches −57° and keeps
+  rotating; Euler would gimbal-lock at −90°) in Kirchhoff form, so the
+  6×6 added mass appears in the Coriolis terms and not just the inertia.
+  With added inertia ~12× structural that coupling is a leading effect.
+  Validated three ways: released at the Stage 3 trim it does not move
+  (< 0.05° and < 0.05 m over 30 s, so statics and nonlinear dynamics
+  agree); a pure position nudge tracks the Stage 4 linearisation to
+  **0.2 %**; and the spectra agree to ~1.5 %.
+  **One defect found in Stage 4 and now bounded**: `l1_dyn3d.linearise`
+  builds attitude states as Euler angles and then sets d(rpy)/dt = ω,
+  which is exact only at zero attitude — at the 12.5° trim it mixes roll
+  and yaw by sin θ ≈ 0.22. `linearise_nonlinear` uses a body
+  rotation-vector chart where that block is exact. Re-run in it: bare
+  Γ=0 no-fin **+1.4717** (was +1.4894) and the adopted Γ=10° + 12 m² fin
+  **−0.0467** (was −0.0474). Every Stage 4 verdict stands; build on the
+  exact chart from here. (An early trajectory comparison suggested a much
+  larger discrepancy — that was a bad initial-condition mapping between
+  the two attitude charts, not a model error.)
 - **Mk V's LATERAL dynamics diverge — Stage 4 (2026-07-25)**: the 12-state
   linearisation (`l1_dyn3d`) validates cleanly and then reports a
   divergent lateral mode at **+1.49 /s (0.5 s doubling)** at 12 m/s,

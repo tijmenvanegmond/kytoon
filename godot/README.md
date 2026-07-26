@@ -14,6 +14,76 @@ sandbox/             the original claude.ai experiment that started this branch
 renders/, frames/    capture output (gitignored, carry a .gdignore)
 ```
 
+## The 3D sim (`sim/mkv_sim3d.tscn`)
+
+A **6-DOF port of `kytoon.solvers.l1_sim3d`** — the model that can
+represent steering, because roll, yaw and sideslip exist in it. The
+longitudinal sim below stays as-is; this is a separate scene so its
+parity gate is never at risk.
+
+```
+godot --path godot sim/mkv_sim3d.tscn                       # fly it
+godot --path godot sim/mkv_sim3d.tscn --headless -- --selftest3d=out.csv
+godot --path godot sim/mkv_sim3d.tscn -- --shots=DIR        # needs a GPU
+```
+
+Keys: **A/D** differential drums (steer), **W/S** common drum (trim),
+**↑/↓** wind speed, **←/→** wind direction, R reset, Space pause.
+
+State is a flat 13-array mirroring the Python layout — position (world),
+quaternion (w,x,y,z), then velocity and angular velocity in **body**
+axes. Two things keep it short and honest:
+
+- **M⁻¹ is exported, not M.** The generalised mass is constant in body
+  axes, so the equation of motion is one 6×6 matvec — GDScript needs no
+  linear solver and cannot disagree with Python about how one behaves.
+- **Kirchhoff form.** Added mass (~12× structural in roll) appears in the
+  Coriolis terms too, built from the same 6×6. Dropping that makes a big
+  light wing spin up wrongly under combined roll+yaw.
+
+**Parity, verified 2026-07-25** over a 40 s manoeuvre with real 3D
+content (a rate-limited differential drum input producing 8.7° of roll,
+19.8° of yaw and 11° of sideslip):
+
+```
+python godot/tools/export_sim3d_params.py    # flight model
+python godot/tools/export_sim3d_replay.py    # reference trajectory
+godot --path godot sim/mkv_sim3d.tscn --headless -- --selftest3d=out.csv
+#   roll 0.0017°  pitch 0.0004°  yaw 0.011°  alpha 0.0006°  beta 0.0044°
+#   position 16 mm    tensions 1.6 N of 20.1 kN
+```
+
+### Steering has a hard limit, and the sim shows it
+
+Past **~0.10 m of differential** the paying-out control line goes SLACK.
+That removes the constraint pinning roll and pitch, and the rig departs
+(roll past 120°). It is a magnitude limit, not a rate one — an
+instantaneous step and a 0.02 m/s ramp depart identically — and it comes
+from line mechanics: the pair carries only 1.74 kN at trim, i.e. 0.063 m
+of available stretch. Pre-tensioning does not help, because control
+tension is *determined* by moment closure at trim.
+
+So the honest steering authority is **~6° of bank**, not the ~20° Stage 3
+statics implied. The sim does not prevent you exceeding it; the HUD
+raises **CTL LINE SLACK** and you watch it go. Past that point the aero
+is flat-plate extrapolation at β ≈ −46° and is not a prediction.
+
+### Frames
+
+Body/sim axes are the loft's own — x downstream, y starboard, z up.
+Godot is X right, Y up, Z toward the viewer. `to_godot()` maps
+(x, y, z) → (x, z, −y), which is right-handed, and that is exactly what
+`KytoonWorld.kite()`'s −90° X wrapper already applies to the glb — so the
+outer node carries `T · R · T⁻¹` and the wrapper supplies the remaining
+`T`. **Physics never touches this**; it is drawing only.
+
+One trap worth naming: Godot's `Basis.x/.y/.z` are **columns**, so
+numpy's `r[i][j]` is `b[j][i]`. Getting that backwards transposes the
+matrix, which leaves *yaw* correct (it reads elements symmetric under the
+mistake) while roll and pitch come out wrong by tens of degrees. That is
+how it first showed up here — and why the parity gate ran before any
+visuals were wired.
+
 ## The sim
 
 `sim/mkv_sim.gd` is a **port of `kytoon.solvers.l1_trim`** — the same
