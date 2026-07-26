@@ -98,7 +98,7 @@ func _ready() -> void:
 	var type_loader_scene = preload("res://common/manta_type_loader.tscn")
 	manta_type_loader = type_loader_scene.instantiate()
 	add_child(manta_type_loader)
-	manta_type_loader.connect("manta_type_changed", self, "_on_manta_type_changed")
+	manta_type_loader.connect("manta_type_changed", Callable(self, "_on_manta_type_changed"))
 	
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--selftest="):
