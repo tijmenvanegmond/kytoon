@@ -370,25 +370,27 @@ def build(spec: KytoonSpec) -> "trimesh.Scene":
                                            fold_eta=fw.fold_eta),
                            geom_name="body")
 
-        # 3-point tether interface on the underside:
-        # control / MAIN / control at the bridle stations
+        # 3-point tether interface on the underside: control / MAIN /
+        # control at the bridle stations.
+        #
+        # Positions come from the SOLVER, not a second formula here. They
+        # were independently placed (0.05·c aft, 0.48·t below, unfolded)
+        # and sat 0.34-0.67 m from where l1_trim actually attaches the
+        # lines — the mesh disagreeing with the model about where the load
+        # goes in, and missing the Γ fold entirely. Imported lazily:
+        # l1_trim and l1_mass3d import `_lofted_fatwing` from this module,
+        # so a top-level import would cycle.
+        from kytoon.solvers.l1_mass3d import attach_point_3d
+
         names = ["fixture_port", "fixture_main", "fixture_stbd"]
         for name, p in zip(names, spec.bridle.positions):
-            y = (p - 0.5) * fw.span
-            c = fw.chord_at(abs(2 * y / fw.span))
-            x = math.tan(math.radians(sweep_deg)) * abs(y) + 0.05 * c
             r_fix = 0.35 if name == "fixture_main" else 0.22
             fix = trimesh.creation.icosphere(subdivisions=2, radius=r_fix)
-            fix.apply_translation([x, y, -0.48 * fw.thickness_ratio * c])
+            fix.apply_translation(attach_point_3d(spec, p))
             scene.add_geometry(fix, geom_name=name)
 
-        # gimbaled EO/IR pod under mid-span, aft of the main fixture
-        pod = trimesh.creation.capsule(radius=0.45, height=1.1)
-        pod.apply_transform(
-            trimesh.transformations.rotation_matrix(math.pi / 2, [0, 1, 0]))
-        pod.apply_translation([0.3 * fw.chord, 0.0,
-                               -0.5 * fw.t_max - 0.6])
-        scene.add_geometry(pod, geom_name="pod")
+        # No EO/IR pod on the airframe: the payload rides the winchlet pod
+        # on the tether, so the wing carries only its own skin.
 
         if spec.fin is not None:
             scene.add_geometry(_fin_mesh(spec.fin, fw), geom_name="fin")
