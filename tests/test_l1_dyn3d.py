@@ -146,6 +146,25 @@ def test_sway_damping_is_negative(rep):
 
 
 @needs_l1
+def test_dihedral_plus_fin_stabilises_the_lateral_mode(specs):
+    """The way out, gated. The two lateral problems pull opposite ways —
+    sway damping wants dihedral, yaw wants none plus a fin — and the
+    Γ × fin map has a narrow island at Γ ≈ 10° with 12-20 m² of fin.
+
+    Worth knowing why that point and not a bigger one: Γ = 10° is where
+    CY_β ≈ 0, so the configuration sits exactly where the least-trusted
+    derivative stops mattering. The margin is thin (≈ −0.04 /s), so this
+    is a candidate to investigate, not a solved design — and neither Γ
+    nor the fin is in the spec.
+    """
+    rep = solve(specs["V"], wind=12.0, dihedral_deg=10.0, fin_area_m2=12.0)
+    assert rep.max_real_lateral < 0.0
+    assert rep.max_real_longitudinal < 0.0
+    assert not any("LATERAL DIVERGENCE" in f for f in rep.flags)
+    assert any("NOT in the spec" in f for f in rep.flags)
+
+
+@needs_l1
 def test_divergence_is_slower_than_the_roll_mode(rep):
     """Sanity on timescales: whatever is diverging must be slower than
     the rig's own roll response, or the linearisation is meaningless."""

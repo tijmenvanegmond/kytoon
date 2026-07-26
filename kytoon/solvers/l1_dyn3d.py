@@ -279,13 +279,16 @@ class L1Dyn3DReport:
     _c11: float = 0.0
 
 
-def solve(spec: KytoonSpec, wind: float = 12.0,
-          dihedral_deg: float = 0.0) -> L1Dyn3DReport:
+def solve(spec: KytoonSpec, wind: float = 12.0, dihedral_deg: float = 0.0,
+          fin_area_m2: float = 0.0) -> L1Dyn3DReport:
+    """Modes at a configuration. Γ and the fin are exploratory knobs, not
+    spec fields — see the Γ × fin map in KYTOON-PROJECT.md §6."""
     _require()
     _check(spec)
     props = mass_props_3d(spec, dihedral_deg=dihedral_deg)
     table = aero_table(spec)
-    lat = solve_lat(spec, dihedral_deg=dihedral_deg)
+    lat = solve_lat(spec, dihedral_deg=dihedral_deg,
+                    fin_area_m2=fin_area_m2)
     wind_world = np.array([wind, 0.0, 0.0])
     l0 = rest_lengths(spec, props, table, lat, wind_world,
                       dihedral_deg=dihedral_deg)
@@ -374,5 +377,8 @@ if __name__ == "__main__":
     ap.add_argument("spec", help="path to a specs/*.yaml file")
     ap.add_argument("--wind", type=float, default=12.0)
     ap.add_argument("--dihedral", type=float, default=0.0)
+    ap.add_argument("--fin", type=float, default=0.0,
+                    help="exploratory fin area [m2], not a spec field")
     args = ap.parse_args()
-    print(_summary(solve(load_spec(args.spec), args.wind, args.dihedral)))
+    print(_summary(solve(load_spec(args.spec), args.wind, args.dihedral,
+                         args.fin)))

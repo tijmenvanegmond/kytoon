@@ -449,13 +449,37 @@ legitimately lower per m² and not comparable to AWE traction figures.
   dropping control-line stiffness 100×, moving the control attachments
   chordwise, and changing pod standoff (longer standoff is *worse*:
   +3.0 /s at 200 m — the 50 m pod is the right choice laterally too).
-  **Do not treat this as settled.** CY_β is a single semi-empirical
-  derivative carrying most of the result, real tethered wings of this
-  class do fly, and a 1.3 s doubling time would make one unflyable — so
-  the magnitude is the prime suspect. Resolving it needs an independent
-  CY_β (VSM with sideslip, or hybrid-aerostat data) before either the
-  problem or the fin is designed around. Gated as a finding in
-  `test_l1_dyn3d` so a change surfaces as a failure, not silence.
+  **CY_β decomposed (same day).** It is **zero at zero lift** and scales
+  as CL² (0.039 at α6, 0.126 at α11, 0.264 at α16), and sweep, taper and
+  thickness barely move it (±0.01) — so it is a second-order *induced*
+  effect, not a planform quirk, and notably NOT contaminated by the
+  flagged t/c 0.28 extrapolation. That is also why it should not be
+  trusted to decide a stability verdict: a small induced term is exactly
+  what a semi-empirical component buildup estimates worst. Treat the
+  robust claim as "aerodynamic sway damping is negligible, so the
+  lateral mode is at best marginal", and the sign as open.
+  **A laterally stable configuration exists (Γ × fin map).** The two
+  requirements pull opposite ways — sway damping wants dihedral, yaw
+  wants none plus a fin — and the map has a narrow island:
+
+  | worst lateral eig [1/s] | no fin | 6 m² | 12 m² | 20 m² |
+  |---|--:|--:|--:|--:|
+  | Γ = 0° | +1.49 | +1.09 | +0.55 | +0.38 |
+  | **Γ = 10°** | +0.53 | +0.15 | **−0.04** | **−0.04** |
+  | Γ = 20° | +0.54 | +0.31 | +0.14 | +0.02 |
+  | Γ = 30° | +0.67 | +0.44 | +0.22 | +0.09 |
+
+  So **Γ ≈ 10° with a 12–20 m² fin** is the candidate. Two caveats worth
+  as much as the result: the margin is thin (−0.04 /s ≈ 17 s time
+  constant — marginal, not comfortable), and Γ = 10° happens to be
+  where CY_β ≈ +0.02, i.e. the design point sits exactly where the
+  least-trusted derivative stops mattering. That is a *good* reason to
+  prefer it, independent of whether the derivative is right.
+  Neither Γ nor a fin is in the spec — both are solver parameters for
+  now, because adding them is a design decision, not a modelling one.
+  The divergence at the CURRENT configuration is gated as a finding in
+  `test_l1_dyn3d`, so adopting either surfaces as a failure demanding a
+  re-read rather than passing in silence.
 - **Mk V recovery procedure, from the Godot sim layer (2026-07-24)**:
   full winch-in 400 → 20 m at 5 m/s (godot/mkv_sim.gd
   `--recovery-test`, a validated GDScript port of l1_trim's dynamics

@@ -58,9 +58,19 @@ def _check(spec: KytoonSpec) -> None:
             f"wing only (got {spec.archetype.value})")
 
 
-def build_plane(spec: KytoonSpec, dihedral_deg: float = 0.0) -> "asb.Airplane":
+FIN_ARM_M = 18.0                         # fin quarter-chord, aft of origin
+FIN_AR = 1.6
+
+
+def build_plane(spec: KytoonSpec, dihedral_deg: float = 0.0,
+                fin_area_m2: float = 0.0) -> "asb.Airplane":
     """AeroSandbox model of the loft — same planform l1_trim sweeps, with
-    the panels folded by Γ."""
+    the panels folded by Γ and an optional vertical fin.
+
+    Neither Γ nor the fin is in the spec: both are exploratory, because
+    adopting either is a design decision. See KYTOON-PROJECT.md §6 for
+    the Γ × fin stability map they were added to produce.
+    """
     _require()
     fw = spec.fat_wing
     naca = f"naca00{round(fw.thickness_ratio * 100):02d}"
@@ -74,10 +84,19 @@ def build_plane(spec: KytoonSpec, dihedral_deg: float = 0.0) -> "asb.Airplane":
             xyz_le=[math.tan(math.radians(SWEEP_DEG)) * y - 0.25 * c,
                     y * math.cos(gamma), y * math.sin(gamma)],
             chord=c, airfoil=af))
+    wings = [asb.Wing(name="fatwing", symmetric=True, xsecs=xsecs)]
+    if fin_area_m2 > 0.0:
+        height = math.sqrt(fin_area_m2 * FIN_AR)
+        chord = fin_area_m2 / height
+        wings.append(asb.Wing(name="fin", symmetric=False, xsecs=[
+            asb.WingXSec(xyz_le=[FIN_ARM_M, 0.0, 0.0], chord=chord,
+                         airfoil=asb.Airfoil("naca0012")),
+            asb.WingXSec(xyz_le=[FIN_ARM_M + 0.4 * chord, 0.0, height],
+                         chord=0.65 * chord, airfoil=asb.Airfoil("naca0012")),
+        ]))
     s_ref = spec.canopy.area
     return asb.Airplane(
-        name=spec.name,
-        wings=[asb.Wing(name="fatwing", symmetric=True, xsecs=xsecs)],
+        name=spec.name, wings=wings,
         s_ref=s_ref, c_ref=s_ref / fw.span, b_ref=fw.span)
 
 
@@ -86,9 +105,10 @@ def build_plane(spec: KytoonSpec, dihedral_deg: float = 0.0) -> "asb.Airplane":
 
 def beta_sweep(spec: KytoonSpec, alpha_deg: float = 11.0,
                dihedral_deg: float = 0.0,
-               betas: np.ndarray | None = None) -> dict:
+               betas: np.ndarray | None = None,
+               fin_area_m2: float = 0.0) -> dict:
     _require()
-    plane = build_plane(spec, dihedral_deg)
+    plane = build_plane(spec, dihedral_deg, fin_area_m2)
     bs = BETAS if betas is None else betas
     cy, cl_roll, cn = [], [], []
     for b in bs:
@@ -254,11 +274,12 @@ class L1LatAeroReport:
 
 
 def solve(spec: KytoonSpec, alpha_deg: float = 11.0,
-          dihedral_deg: float = 0.0) -> L1LatAeroReport:
+          dihedral_deg: float = 0.0,
+          fin_area_m2: float = 0.0) -> L1LatAeroReport:
     _require()
     _check(spec)
     props = mass_props_3d(spec, dihedral_deg=dihedral_deg)
-    sw = beta_sweep(spec, alpha_deg, dihedral_deg)
+    sw = beta_sweep(spec, alpha_deg, dihedral_deg, fin_area_m2=fin_area_m2)
     cl_p = roll_damping(spec, dihedral_deg=dihedral_deg)
     flags = [
         "AeroBuildup lateral derivatives are semi-empirical and NOT "
@@ -271,6 +292,9 @@ def solve(spec: KytoonSpec, alpha_deg: float = 11.0,
     ]
     if dihedral_deg == 0.0:
         flags.append("Γ = 0: dihedral effect comes from sweep alone")
+    if fin_area_m2 > 0.0:
+        flags.append(f"exploratory {fin_area_m2:.0f} m² fin at "
+                     f"{FIN_ARM_M:.0f} m — NOT in the spec")
 
     rep = L1LatAeroReport(
         spec=spec, alpha_deg=alpha_deg, dihedral_deg=dihedral_deg,
