@@ -421,7 +421,7 @@ const DIFF_LIMIT := 0.25
 
 var kite_node: Node3D
 var pod_node: MeshInstance3D
-var cam: Camera3D
+var cam: SimCamera
 var hud: Label
 var line_nodes := []
 var line_mats := []
@@ -468,9 +468,10 @@ func _build_visuals() -> void:
 	pod_node.material_override = pmat
 	add_child(pod_node)
 
-	cam = Camera3D.new()
-	cam.fov = 50.0
-	cam.far = 5000.0
+	# Same rig the longitudinal sim uses — four framings, drag to orbit,
+	# wheel to zoom. The camera must not spin off sim time; that is
+	# unflyable once you are actually steering.
+	cam = SimCamera.new()
 	add_child(cam)
 
 	var canvas := CanvasLayer.new()
@@ -500,6 +501,7 @@ func _run_shots() -> void:
 			l0[STBD] = l0_trim[STBD] + diff_cmd
 			for _i in int(1.0 / fps / DT):
 				last_out = _step(DT)
+			cam.azimuth += 0.04 / fps      # slow sweep, capture only
 			_update_visuals()
 			await get_tree().process_frame
 			await RenderingServer.frame_post_draw
@@ -548,12 +550,18 @@ func _handle_input(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	# cam is null in the headless gate, which never sees input anyway
+	if cam != null and cam.handle_input(event):
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_R:
 				_reset()
 				diff_cmd = 0.0
 				common_cmd = 0.0
+			KEY_C:
+				if cam != null:
+					cam.cycle()
 			KEY_SPACE:
 				paused = not paused
 			KEY_ESCAPE:
@@ -586,13 +594,9 @@ func _update_visuals() -> void:
 			to_godot(ends[i][1]))
 		KytoonWorld.tension_color(line_mats[i], float(tens[i]), caps[i])
 
-	var focus := (g_pos + to_godot(pod)) * 0.5
-	var az := 0.6 + 0.04 * sim_t
-	cam.position = focus + 90.0 * Vector3(cos(az), 0.12, sin(az))
-	cam.position.y = maxf(cam.position.y, 4.0)
-	cam.look_at(focus, Vector3.UP)
-
 	var rpy := rpy_deg()
+	cam.track(g_pos, to_godot(pod), to_godot(anchor), deg_to_rad(rpy.y))
+
 	var slack := ""
 	if minf(float(tens[PORT]), float(tens[STBD])) < 50.0:
 		slack = "   ** CTL LINE SLACK — rig is departing **"
@@ -606,7 +610,7 @@ func _update_visuals() -> void:
 		+ "T  port %5.2f   main %5.1f   stbd %5.2f kN%s\n"
 			% [float(tens[PORT]) / 1e3, float(tens[MAIN]) / 1e3,
 			   float(tens[STBD]) / 1e3, slack]
-		+ "drums: differential %+0.3f m   common %+0.3f m\n"
-			% [diff_cmd, common_cmd]
-		+ "A/D steer   W/S trim   Up/Dn wind   L/R wind dir   "
-		+ "R reset   Space pause")
+		+ "drums: differential %+0.3f m   common %+0.3f m   cam %s\n"
+			% [diff_cmd, common_cmd, cam.mode_name()]
+		+ "A/D steer   W/S trim   Up/Dn wind   L/R wind dir   C camera   "
+		+ "drag/wheel orbit   R reset   Space pause")

@@ -20,19 +20,20 @@ var out_dir: String = "frames"
 const ORBIT_RADIUS := 175.0
 const LOOK_AT := Vector3(0.0, 25.0, -10.0)
 
-# Entity colors from kytoon/viz.py MK_COLOR — fixed per Mk, never re-derived.
-# alt = holder (bridle point) altitude; attach_y = keel offset below origin
-# for the Mks whose origin sits inside the envelope.
+# Entity colors come from KytoonWorld.MK_COLOR, which mirrors kytoon/viz.py
+# — fixed per Mk, never re-derived. alt = holder (bridle point) altitude;
+# attach_y = keel offset below origin for the Mks whose origin sits inside
+# the envelope.
 const FLEET := [
-	{"file": "mki.glb",   "label": "Mk I «Sled»",     "color": Color("2a78d6"),
+	{"model": "mki",   "mk": "I",   "label": "Mk I «Sled»",
 	 "x": -90.0, "z": -25.0, "alt": 16.0, "attach_y": 0.0},
-	{"file": "mkii.glb",  "label": "Mk II «Helikite»", "color": Color("1baf7a"),
+	{"model": "mkii",  "mk": "II",  "label": "Mk II «Helikite»",
 	 "x": -45.0,  "z": -10.0, "alt": 30.0, "attach_y": -4.9},
-	{"file": "mkiii.glb", "label": "Mk III «Spine»",   "color": Color("eda100"),
+	{"model": "mkiii", "mk": "III", "label": "Mk III «Spine»",
 	 "x": 0.0,    "z": 0.0,   "alt": 20.0, "attach_y": 0.0},
-	{"file": "mkiv.glb",  "label": "Mk IV «Torus»",    "color": Color("008300"),
+	{"model": "mkiv",  "mk": "IV",  "label": "Mk IV «Torus»",
 	 "x": 45.0,   "z": -10.0, "alt": 32.0, "attach_y": -2.2},
-	{"file": "mkv.glb",   "label": "Mk V «Manta»",     "color": Color("4a3aa7"),
+	{"model": "mkv",   "mk": "V",   "label": "Mk V «Manta»",
 	 "x": 90.0,   "z": -25.0, "alt": 30.0, "attach_y": -2.9},
 ]
 
@@ -85,101 +86,33 @@ func _parse_args() -> void:
 # --- scene construction --------------------------------------------------
 
 func _build() -> void:
-	_build_environment()
-	_build_lights()
-	_build_sea()
+	# tighter fog, shorter shadow throw and a smaller sea than the sim
+	# scenes: this is a 175 m turntable, not a 400 m tether
+	add_child(KytoonWorld.environment(0.0008))
+	KytoonWorld.lights(self, 500.0)
+	add_child(KytoonWorld.sea(3000.0))
 
 	cam = Camera3D.new()
 	cam.fov = 52.0
 	cam.far = 2000.0
 	add_child(cam)
 
-	var models_dir := ProjectSettings.globalize_path("res://") + "../models/"
 	for entry in FLEET:
-		_build_kytoon(entry, models_dir)
+		_build_kytoon(entry)
 
 
-func _build_environment() -> void:
-	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.13, 0.24, 0.42)
-	sky_mat.sky_horizon_color = Color(0.78, 0.62, 0.45)
-	sky_mat.ground_horizon_color = Color(0.55, 0.45, 0.38)
-	sky_mat.ground_bottom_color = Color(0.05, 0.08, 0.12)
-	var sky := Sky.new()
-	sky.sky_material = sky_mat
-
-	var env := Environment.new()
-	env.background_mode = Environment.BG_SKY
-	env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.5
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.0
-	env.fog_enabled = true
-	env.fog_light_color = Color(0.55, 0.58, 0.65)
-	env.fog_density = 0.0008
-
-	var we := WorldEnvironment.new()
-	we.environment = env
-	add_child(we)
-
-
-func _build_lights() -> void:
-	var sun := DirectionalLight3D.new()
-	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 500.0
-	sun.light_energy = 1.8
-	sun.light_color = Color(1.0, 0.93, 0.82)
-	sun.rotation_degrees = Vector3(-24.0, 35.0, 0.0)
-	add_child(sun)
-
-	var fill := DirectionalLight3D.new()
-	fill.shadow_enabled = false
-	fill.light_energy = 0.35
-	fill.light_color = Color(0.6, 0.7, 1.0)
-	fill.rotation_degrees = Vector3(-18.0, -140.0, 0.0)
-	add_child(fill)
-
-
-func _build_sea() -> void:
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.03, 0.10, 0.17)
-	mat.metallic = 0.05
-	mat.metallic_specular = 0.08
-	mat.roughness = 0.6
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(3000.0, 3000.0)
-	var mi := MeshInstance3D.new()
-	mi.mesh = plane
-	mi.material_override = mat
-	add_child(mi)
-
-
-func _build_kytoon(entry: Dictionary, models_dir: String) -> void:
+func _build_kytoon(entry: Dictionary) -> void:
 	var holder := Node3D.new()
 	holder.position = Vector3(entry["x"], entry["alt"], entry["z"])
 	add_child(holder)
 	holders.append(holder)
 
-	var inner := Node3D.new()
-	inner.rotation_degrees = Vector3(-90.0, 90.0, 0.0)
-	holder.add_child(inner)
-
-	var doc := GLTFDocument.new()
-	var state := GLTFState.new()
-	var err := doc.append_from_file(models_dir + entry["file"], state)
-	if err != OK:
-		push_error("failed to load %s: %d" % [entry["file"], err])
+	# yaw 90: span along X, nose at -Z, so the lineup faces the camera
+	var wrapper := KytoonWorld.kite(entry["model"],
+		KytoonWorld.MK_COLOR[entry["mk"]], 90.0, 0.05)
+	if wrapper == null:
 		return
-	var model := doc.generate_scene(state)
-	inner.add_child(model)
-
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = entry["color"]
-	mat.roughness = 0.55
-	mat.metallic = 0.05
-	mat.cull_mode = BaseMaterial3D.CULL_DISABLED   # canopies are open surfaces
-	_apply_material(model, mat)
+	holder.add_child(wrapper)
 
 	# ship at the tether anchor, upwind (+Z) of the kytoon
 	var attach_h: float = entry["alt"] + entry["attach_y"]
@@ -223,13 +156,7 @@ func _build_tether() -> MeshInstance3D:
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = Color(0.82, 0.82, 0.80)
 	mat.roughness = 0.9
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = 0.12
-	mesh.bottom_radius = 0.12
-	mesh.height = 1.0
-	var mi := MeshInstance3D.new()
-	mi.mesh = mesh
-	mi.material_override = mat
+	var mi := KytoonWorld.line_mesh(0.12, mat)
 	add_child(mi)
 	return mi
 
@@ -247,25 +174,7 @@ func _build_label(entry: Dictionary) -> void:
 	add_child(label)
 
 
-func _apply_material(node: Node, mat: Material) -> void:
-	if node is MeshInstance3D:
-		node.material_override = mat
-	for child in node.get_children():
-		_apply_material(child, mat)
-
-
 # --- per-frame pose ------------------------------------------------------
-
-func _stretch_tether(t: MeshInstance3D, a: Vector3, b: Vector3) -> void:
-	var d := b - a
-	(t.mesh as CylinderMesh).height = d.length()
-	var y := d.normalized()
-	var x := y.cross(Vector3.FORWARD).normalized()
-	if x.length_squared() < 0.5:
-		x = y.cross(Vector3.RIGHT).normalized()
-	var z := x.cross(y)
-	t.global_transform = Transform3D(Basis(x, y, z), (a + b) * 0.5)
-
 
 func _pose(t: float) -> void:
 	var a := t * TAU
@@ -291,4 +200,4 @@ func _pose(t: float) -> void:
 
 		var attach := holders[i].global_position + Vector3(0.0, entry["attach_y"], 0.0)
 		var deck := anchors[i] + Vector3(0.0, 2.2 + bob, 0.0)
-		_stretch_tether(tethers[i], deck, attach)
+		KytoonWorld.stretch(tethers[i], deck, attach)

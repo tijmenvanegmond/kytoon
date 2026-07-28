@@ -8,6 +8,7 @@ Writes CSV: t, roll, pitch, yaw, alpha, beta, x, y, z, T_port, T_main,
 T_stbd. Run from the repo root, needs the l1 extra.
 """
 import sys
+from pathlib import Path
 
 import numpy as np
 
@@ -20,8 +21,16 @@ from kytoon.solvers.l1_sim3d import integrate, state_from_trim
 from kytoon.solvers.l1_trim import aero_table
 from kytoon.spec import load_spec
 
-OUT = "godot/renders/mkv_sim3d_replay.csv"
+OUT = "godot/renders/mkv_sim3d_replay.csv"     # run from the repo root
 WIND, T_END, DIFF, T_STEP = 12.0, 40.0, 0.10, 5.0
+
+# renders/ is gitignored, so a fresh checkout has no such directory and
+# savetxt would die at the end of a 40 s solve. It also sits inside the
+# Godot project: without .gdignore the editor imports every PNG as a
+# texture and parses stray CSVs as translations.
+_out_dir = Path(OUT).parent
+_out_dir.mkdir(parents=True, exist_ok=True)
+(_out_dir / ".gdignore").touch()
 
 spec = load_spec("specs/mk5_manta.yaml")
 gam = spec.fat_wing.dihedral_deg

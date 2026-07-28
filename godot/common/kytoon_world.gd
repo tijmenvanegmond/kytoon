@@ -100,7 +100,10 @@ static func ship() -> Node3D:
 ## Y-up, hence the -90 deg X rotation. yaw_deg then picks the heading:
 ## 0 puts the span across X (longitudinal scenes, wind along +X);
 ## 90 puts the span along X with the nose at -Z (the fleet lineup).
-static func kite(name: String, color: Color, yaw_deg: float = 0.0) -> Node3D:
+## metallic stays at 0 for the sim scenes; the fleet lineup uses a touch
+## of it so the models read against the sky at 175 m.
+static func kite(name: String, color: Color, yaw_deg: float = 0.0,
+		metallic: float = 0.0) -> Node3D:
 	var doc := GLTFDocument.new()
 	var state := GLTFState.new()
 	var path := ProjectSettings.globalize_path("res://") + "../models/%s.glb" % name
@@ -115,6 +118,7 @@ static func kite(name: String, color: Color, yaw_deg: float = 0.0) -> Node3D:
 	var mat := StandardMaterial3D.new()
 	mat.albedo_color = color
 	mat.roughness = 0.55
+	mat.metallic = metallic
 	mat.cull_mode = BaseMaterial3D.CULL_DISABLED   # canopies are open surfaces
 	_tint(model, mat)
 	return wrapper

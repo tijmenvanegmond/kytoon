@@ -1,10 +1,11 @@
 # Manta — the Godot layer
 
-Godot 4.7 project for the kytoon work. The **Mk V live sim is the main
-scene**: open the project and press F5.
+Godot 4.7 project for the kytoon work. The **Mk V 6-DOF sim is the main
+scene**: open the project and press F5. The longitudinal sim it grew out
+of stays alongside it (`sim/mkv_sim.tscn`) and keeps its own parity gate.
 
 ```
-project.godot        name "Manta", main scene = sim/mkv_sim.tscn, input map
+project.godot        name "Manta", main scene = sim/mkv_sim3d.tscn, input map
 data/                mkv_sim_params.json — flight model, generated, do not edit
 sim/                 the sim: mkv_sim.gd (+ .tscn), sim_hud, sim_camera, trace_plot
 common/              kytoon_world.gd — shared sky/sea/ship/kite/line helpers
@@ -28,7 +29,13 @@ godot --path godot sim/mkv_sim3d.tscn -- --shots=DIR        # needs a GPU
 ```
 
 Keys: **A/D** differential drums (steer), **W/S** common drum (trim),
-**↑/↓** wind speed, **←/→** wind direction, R reset, Space pause.
+**↑/↓** wind speed, **←/→** wind direction, **C** camera (rig / kite /
+ship / wide), drag and wheel to orbit and zoom, R reset, Space pause.
+
+The camera is `sim/sim_camera.gd` — the same `SimCamera` the longitudinal
+sim uses. It used to be an ad-hoc orbit driven off sim time, which is
+unflyable the moment you are actually steering. The capture mode
+(`--shots`) advances the azimuth itself to keep its slow sweep.
 
 State is a flat 13-array mirroring the Python layout — position (world),
 quaternion (w,x,y,z), then velocity and angular velocity in **body**
@@ -41,9 +48,11 @@ axes. Two things keep it short and honest:
   Coriolis terms too, built from the same 6×6. Dropping that makes a big
   light wing spin up wrongly under combined roll+yaw.
 
-**Parity, verified 2026-07-25** over a 40 s manoeuvre with real 3D
+**Parity, re-verified 2026-07-27** over a 40 s manoeuvre with real 3D
 content (a rate-limited differential drum input producing 8.7° of roll,
-19.8° of yaw and 11° of sideslip):
+a 19.4° yaw peak and 8.5° of sideslip — the yaw and sideslip figures are
+down slightly from the 2026-07-25 run, which predates the geometry
+attachment fix in `245e695`):
 
 ```
 python godot/tools/export_sim3d_params.py    # flight model
@@ -289,8 +298,15 @@ chase spec.
 
 ## Follow-ups
 
-- `viz/mkv_replay.gd` and `viz/fleet_capture.gd` still build their own
-  sky/sea/ship/lines; they predate `common/kytoon_world.gd` and should be
-  moved onto it (the sim already is). Verify by re-rendering a frame.
 - Cross-check the segmented tether's sag/tension against `l1_tether`'s
   MoorPy statics — same physics, two independent implementations.
+- `SimCamera`'s RIG framing focuses on the kite/pod midpoint at a fixed
+  70 m, which clips the airframe at the top of frame at the default pod
+  standoff. Orbit and zoom get you out of it, but the opening shot is
+  wrong. Retuning touches both sims, so it wants its own before/after.
+
+Done 2026-07-27: `viz/mkv_replay.gd` and `viz/fleet_capture.gd` moved
+onto `common/kytoon_world.gd` (they predated it and each rebuilt their
+own sky/sea/ship/lines) — 570 → 374 lines, verified bit-identical over
+rendered frames from both scenes. The fleet keeps its own ship: it is a
+small boat at lineup scale, not the 40 m trimaran the sim scenes use.

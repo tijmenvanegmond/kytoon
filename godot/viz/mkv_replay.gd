@@ -17,7 +17,6 @@ var csv_path := "renders/mkv_replay.csv"
 var out_dir := "frames"
 
 const FAIRLEAD := Vector3(0.0, 5.0, 0.0)
-const MK_V_COLOR := Color("4a3aa7")
 
 var rows: Array = []
 var kite: Node3D
@@ -80,73 +79,18 @@ func _load_csv() -> void:
 # --- scene ----------------------------------------------------------------
 
 func _build() -> void:
-	# environment (fleet-scene family)
-	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.13, 0.24, 0.42)
-	sky_mat.sky_horizon_color = Color(0.78, 0.62, 0.45)
-	sky_mat.ground_horizon_color = Color(0.55, 0.45, 0.38)
-	sky_mat.ground_bottom_color = Color(0.05, 0.08, 0.12)
-	var sky := Sky.new()
-	sky.sky_material = sky_mat
-	var env := Environment.new()
-	env.background_mode = Environment.BG_SKY
-	env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
-	env.ambient_light_energy = 0.5
-	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.fog_enabled = true
-	env.fog_light_color = Color(0.55, 0.58, 0.65)
-	env.fog_density = 0.0004
-	var we := WorldEnvironment.new()
-	we.environment = env
-	add_child(we)
+	add_child(KytoonWorld.environment())
+	KytoonWorld.lights(self)
+	add_child(KytoonWorld.sea())
+	add_child(KytoonWorld.ship())
 
-	var sun := DirectionalLight3D.new()
-	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 800.0
-	sun.light_energy = 1.8
-	sun.light_color = Color(1.0, 0.93, 0.82)
-	sun.rotation_degrees = Vector3(-24.0, 35.0, 0.0)
-	add_child(sun)
-	var fill := DirectionalLight3D.new()
-	fill.shadow_enabled = false
-	fill.light_energy = 0.35
-	fill.light_color = Color(0.6, 0.7, 1.0)
-	fill.rotation_degrees = Vector3(-18.0, -140.0, 0.0)
-	add_child(fill)
-
-	# sea
-	var sea := MeshInstance3D.new()
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(20000.0, 20000.0)
-	sea.mesh = plane
-	var smat := StandardMaterial3D.new()
-	smat.albedo_color = Color(0.03, 0.10, 0.17)
-	smat.metallic = 0.05
-	smat.metallic_specular = 0.08
-	smat.roughness = 0.6
-	sea.material_override = smat
-	add_child(sea)
-
-	_build_ship()
-
-	# kite
+	# kite — the wrapper carries the -90 deg X that takes the exporter's
+	# z-up loft into glTF's Y-up
 	kite = Node3D.new()
 	add_child(kite)
-	var inner := Node3D.new()
-	inner.rotation_degrees = Vector3(-90.0, 0.0, 0.0)   # x downwind, z -> up
-	kite.add_child(inner)
-	var doc := GLTFDocument.new()
-	var state := GLTFState.new()
-	if doc.append_from_file(ProjectSettings.globalize_path("res://")
-			+ "../models/mkv.glb", state) == OK:
-		var model := doc.generate_scene(state)
-		inner.add_child(model)
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = MK_V_COLOR
-		mat.roughness = 0.55
-		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-		_apply(model, mat)
+	var wrapper := KytoonWorld.kite("mkv", KytoonWorld.MK_COLOR["V"])
+	if wrapper != null:
+		kite.add_child(wrapper)
 
 	# lines
 	mat_main = StandardMaterial3D.new()
@@ -185,62 +129,13 @@ func _build() -> void:
 	canvas.add_child(hud)
 
 
-func _build_ship() -> void:
-	var gray := StandardMaterial3D.new()
-	gray.albedo_color = Color(0.28, 0.30, 0.34)
-	gray.roughness = 0.85
-	var ship := Node3D.new()
-	add_child(ship)
-	# 40 m trimaran: center hull + outriggers + deckhouse + winch pedestal
-	for def in [[Vector3(40, 3.5, 4), Vector3(0, 1.5, 0)],
-				[Vector3(20, 2, 1.6), Vector3(-4, 1.0, 8)],
-				[Vector3(20, 2, 1.6), Vector3(-4, 1.0, -8)],
-				[Vector3(6, 3, 5), Vector3(-12, 4.5, 0)],
-				[Vector3(2, 2.2, 2), Vector3(0, 4.1, 0)]]:
-		var b := MeshInstance3D.new()
-		var m := BoxMesh.new()
-		m.size = def[0]
-		b.mesh = m
-		b.position = def[1]
-		b.material_override = gray
-		ship.add_child(b)
-
-
 func _make_line(radius: float, mat: StandardMaterial3D) -> MeshInstance3D:
-	var mi := MeshInstance3D.new()
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = radius
-	mesh.bottom_radius = radius
-	mesh.height = 1.0
-	mi.mesh = mesh
-	mi.material_override = mat
+	var mi := KytoonWorld.line_mesh(radius, mat)
 	add_child(mi)
 	return mi
 
 
-func _apply(n: Node, mat: Material) -> void:
-	if n is MeshInstance3D:
-		n.material_override = mat
-	for c in n.get_children():
-		_apply(c, mat)
-
-
 # --- per-frame ---------------------------------------------------------------
-
-func _stretch(mi: MeshInstance3D, a: Vector3, b: Vector3) -> void:
-	var d := b - a
-	(mi.mesh as CylinderMesh).height = d.length()
-	var y := d.normalized()
-	var x := y.cross(Vector3.FORWARD).normalized()
-	if x.length_squared() < 0.5:
-		x = y.cross(Vector3.RIGHT).normalized()
-	mi.global_transform = Transform3D(Basis(x, y, x.cross(y)), (a + b) * 0.5)
-
-
-func _tension_color(mat: StandardMaterial3D, T: float, cap: float) -> void:
-	var f: float = clampf(T / cap, 0.0, 1.0)
-	mat.albedo_color = Color(0.85, 0.85, 0.82).lerp(Color(0.95, 0.15, 0.1), f)
-
 
 func _pose(i: int) -> void:
 	var r: Array = rows[i]
@@ -251,11 +146,11 @@ func _pose(i: int) -> void:
 
 	var pod_pos := Vector3(r[10], r[11], 0)
 	pod.position = pod_pos
-	_stretch(line_main, FAIRLEAD, Vector3(r[6], r[7], 0))
-	_stretch(line_ctl_l, pod_pos, Vector3(r[8], r[9], -Y_CTL))
-	_stretch(line_ctl_r, pod_pos, Vector3(r[8], r[9], Y_CTL))
-	_tension_color(mat_main, r[12], 66.7e3)
-	_tension_color(mat_ctl, r[13], 33.3e3)
+	KytoonWorld.stretch(line_main, FAIRLEAD, Vector3(r[6], r[7], 0))
+	KytoonWorld.stretch(line_ctl_l, pod_pos, Vector3(r[8], r[9], -Y_CTL))
+	KytoonWorld.stretch(line_ctl_r, pod_pos, Vector3(r[8], r[9], Y_CTL))
+	KytoonWorld.tension_color(mat_main, r[12], 66.7e3)
+	KytoonWorld.tension_color(mat_ctl, r[13], 33.3e3)
 
 	# camera: establishing wide from the deck, then an orbiting tracker
 	# framing both the kite and the winchlet pod below it

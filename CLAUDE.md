@@ -115,6 +115,13 @@ Three-stage pipeline, one file per stage:
   flight-dynamics body axes (x fwd, z down) while the loft is geometry axes
   (x aft, z up), and its β is negated relative to `l1_rig3d.wind_angles`.
   CLI: `python -m kytoon.solvers.l1_rig3d specs/mk5_manta.yaml`.
+- `kytoon/solvers/l1_dyn3d.py`, `l1_sim3d.py` — the same lateral stack's
+  Stages 4 and 5: a 12-state linearisation with modal analysis, then the
+  nonlinear 6-DOF time domain (quaternion attitude, Kirchhoff form so added
+  mass enters the Coriolis terms too). `l1_sim3d` is the reference the Godot
+  6-DOF sim is a port of — change the solver first, then re-export and
+  re-run the parity gate, never the other way round.
+  CLI: `python -m kytoon.solvers.l1_sim3d specs/mk5_manta.yaml`.
 - `kytoon/report.py` — turns a list of `L0Report` into the comparison table +
   per-member structure margins + flags seen in `reports/l0.md`.
 - `kytoon/geometry.py` — 3D kernel: realizes each spec as a trimesh scene

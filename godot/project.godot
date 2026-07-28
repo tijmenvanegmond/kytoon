@@ -15,8 +15,8 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="Manta"
-config/description="Mk V «Manta» kytoon: live longitudinal sim (flight model ported from kytoon.solvers.l1_trim) plus fleet/replay capture scenes."
-run/main_scene="res://sim/mkv_sim.tscn"
+config/description="Mk V «Manta» kytoon: live 6-DOF sim (flight model ported from kytoon.solvers.l1_sim3d), the longitudinal sim it grew out of (l1_trim), plus fleet/replay capture scenes."
+run/main_scene="res://sim/mkv_sim3d.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [display]
